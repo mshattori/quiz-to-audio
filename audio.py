@@ -95,4 +95,9 @@ def make_section_mp3_files(input_directory, output_directory, section_unit=10, a
         # WALKMAN supports ID3v2.3, not v2.4, which is the default value of pydub
         section_audio.export(section_filename, format='mp3', tags=tags, id3v2_version='3')
         print('Created "{}"'.format(section_filename))
-    
+
+        cleanup_glob_pattern = os.path.join(output_directory, '{}-*.mp3'.format(start))
+        for target_file in glob(cleanup_glob_pattern):
+            if target_file != section_filename:
+                os.remove(target_file)
+                print('Removed "{}"'.format(target_file))
