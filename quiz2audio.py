@@ -1,20 +1,46 @@
 #!/usr/bin/env python
 import sys
+import argparse
+import re
 from polly import *
 from audio import *
 
-if len(sys.argv) < 3:
-    print('Usage: quiz2audio.py quiz-filename output-directory\n')
-    sys.exit(1)
+parser = argparse.ArgumentParser()
+parser.add_argument('--lang-QA', default='EE', choices=('EE', 'EJ', 'JE'))
+parser.add_argument('--speed-QA', default='1.0')
+parser.add_argument('--invert-QA', action='store_true', default=False)
+parser.add_argument('--repeat-question', action='store_true', default=False)
+parser.add_argument('quiz_filename')
+parser.add_argument('output_directory')
+args = parser.parse_args()
 
-quiz_file = sys.argv[1]
-output_directory = sys.argv[2]
+quiz_file = args.quiz_filename 
+output_directory = args.output_directory 
+lang_Q, lang_A = 'en-US', 'en-US'
+if args.lang_QA == 'EJ':
+    lang_A = 'ja-JP'
+if args.lang_QA == 'JE':
+    lang_Q = 'ja-JP'
+speed = args.speed_QA
+if not re.fullmatch(r'\d+(\.\d+)?(:\d+(\.\d+)?)?', speed):
+    print('Invalid speed format. The correct format is "0.9", "1.0:0.9", etc.')
+    sys.exit(1)
+if speed.find(':') > 0:
+    speed_Q, speed_A = speed.split(':')
+    speed = (float(speed_Q), float(speed_A))
+else:
+    speed = (float(speed), float(speed))
+invert_QA = args.invert_QA
+if invert_QA: 
+    lang_Q, lang_A = lang_A, lang_Q 
+    speed = (speed[1], speed[0])
+repeat_question = args.repeat_question
 
 if not os.path.isfile(quiz_file):
     print('File not found: ' + quiz_file)
     sys.exit(1)
 if not os.path.exists(output_directory):
-    os.makedirs(audio_directory)
+    os.makedirs(output_directory)
 if not os.path.isdir(output_directory):
     print('Not a directory: ' + output_directory)
     sys.exit(1)
@@ -29,6 +55,6 @@ else:
 with open(quiz_file) as f:
     quiz_list = [l.rstrip('\n') for l in f.readlines() if l.find(':=') != -1 ]
 
-QuizPolly().quiz_list_to_audio(quiz_list, raw_directory)
+QuizPolly(lang_Q, lang_A).quiz_list_to_audio(quiz_list, raw_directory, invert_QA)
 
-make_section_mp3_files(raw_directory, output_directory)
+make_section_mp3_files(raw_directory, output_directory, speed, repeat_question)

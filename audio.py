@@ -18,13 +18,14 @@ def speed_change(sound, speed=1.0):
     # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
-def _combine_QA(file_Q, file_A, repeat_question=True, pause_duration=500, end_duration=1500):
+def _combine_QA(file_Q, file_A, speed, repeat_question, pause_duration=500, end_duration=1500):
     seg_Q = AudioSegment.from_file(file_Q, 'mp3')
     seg_A = AudioSegment.from_file(file_A, 'mp3')
     pause = AudioSegment.silent(duration=pause_duration)
-    # !!! speed down 10%
-    seg_Q = speed_change(seg_Q, 0.90)
-    seg_A = speed_change(seg_A, 0.90)
+    if speed[0] != 1.0:
+        seg_Q = speed_change(seg_Q, speed[0])
+    if speed[1] != 1.0:
+        seg_A = speed_change(seg_A, speed[1])
     seg = seg_Q
     if repeat_question:
         seg += pause + seg_Q
@@ -65,7 +66,7 @@ def _combine_audio_list(audio_list):
         seg = seg + a
     return seg
 
-def make_section_mp3_files(input_directory, output_directory, section_unit=10, artist='Homebrew'):
+def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, section_unit=10, artist='Homebrew'):
     numbers = _collect_ordinal_numbers(input_directory)
 
     # separate numbers into sections
@@ -86,7 +87,7 @@ def make_section_mp3_files(input_directory, output_directory, section_unit=10, a
             if not (file_Q and file_A):
                 print('WARN: Corresponding files not found for ', number)
                 continue
-            file_QA = _combine_QA(file_Q, file_A)
+            file_QA = _combine_QA(file_Q, file_A, speed, repeat_question)
             section_audio_segments.append(file_QA)
 
         section_audio = _combine_audio_list(section_audio_segments)
