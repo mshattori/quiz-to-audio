@@ -31,9 +31,6 @@ if speed.find(':') > 0:
 else:
     speed = (float(speed), float(speed))
 invert_QA = args.invert_QA
-if invert_QA: 
-    lang_Q, lang_A = lang_A, lang_Q 
-    speed = (speed[1], speed[0])
 repeat_question = args.repeat_question
 
 if not os.path.isfile(quiz_file):
