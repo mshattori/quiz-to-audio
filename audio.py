@@ -22,9 +22,9 @@ def _combine_QA(file_Q, file_A, repeat_question=True, pause_duration=500, end_du
     seg_Q = AudioSegment.from_file(file_Q, 'mp3')
     seg_A = AudioSegment.from_file(file_A, 'mp3')
     pause = AudioSegment.silent(duration=pause_duration)
-    # !!! speed down 5%
-    seg_Q = speed_change(seg_Q, 0.95)
-    seg_A = speed_change(seg_A, 0.95)
+    # !!! speed down 10%
+    seg_Q = speed_change(seg_Q, 0.90)
+    seg_A = speed_change(seg_A, 0.90)
     seg = seg_Q
     if repeat_question:
         seg += pause + seg_Q
