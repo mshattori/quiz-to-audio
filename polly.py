@@ -17,7 +17,7 @@ def split_quiz(quiz):
     return q_text.strip(), a_text.strip()
 
 class SpeakerGroup(object):
-    EXCLUDE_VOICES = ('Ivy', 'Justin', 'Kevin')
+    EXCLUDE_VOICES = ('Ivy', 'Justin', 'Kevin', 'Matthew')
 
     @classmethod
     def make_speaker_groups(cls, lang_Q, lang_A, engine):
@@ -72,6 +72,7 @@ class QuizPolly(object):
             q_text, a_text = split_quiz(quiz)
         except ValueError as e:
             print('Failed to convert: ({}) "{}"'.format(index+1, quiz))
+            raise e
         if invert_QA:
             q_text, a_text = a_text, q_text
         q_lang, a_lang = self.voice_group_Q.lang, self.voice_group_A.lang
