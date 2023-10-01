@@ -59,6 +59,8 @@ class QuizPolly(object):
         self.polly = boto3.client('polly')
         self.engine = engine
         group_Q, group_A = SpeakerGroup.make_speaker_groups(lang_Q, lang_A, engine)
+        self.lang_Q = lang_Q
+        self.lang_A = lang_A
         self.voice_group_Q = group_Q
         self.voice_group_A = group_A
 
@@ -83,10 +85,10 @@ class QuizPolly(object):
         number = '{:03d}'.format(index+1)
         q_filename = os.path.join(output_directory, '-'.join([number, 'Q', q_voice]) + '.mp3')
         if len(glob(q_filename.replace(q_voice, '*'))) == 0:
-            self._text_to_audio(q_text, q_lang, q_voice, q_filename)
+            self.text_to_audio(q_text, q_lang, q_filename, q_voice)
         a_filename = os.path.join(output_directory, '-'.join([number, 'A', a_voice]) + '.mp3')
         if len(glob(a_filename.replace(a_voice, '*'))) == 0:
-            self._text_to_audio(a_text, a_lang, a_voice, a_filename)
+            self.text_to_audio(a_text, a_lang, a_filename, a_voice)
     
     def _decide_speakers(self, index):
         speaker_Q = self.voice_group_Q.get_speaker()
@@ -96,7 +98,13 @@ class QuizPolly(object):
             speaker_Q, speaker_A = speaker_A, speaker_Q
         return speaker_Q, speaker_A
 
-    def _text_to_audio(self, text, lang, voice, output_filename):
+    def text_to_audio(self, text, lang, output_filename, voice=None):
+        if not voice:
+            if self.lang_Q == lang:
+                voice = self.voice_group_Q.get_speaker()
+            elif self.lang_A == lang:
+                voice = self.voice_group_A.get_speaker()
+
         if os.path.exists(output_filename):
             print('Skip existing file "{}"'.format(output_filename))
             return

@@ -10,6 +10,7 @@ parser.add_argument('--lang-QA', default='EE', choices=('EE', 'EJ', 'JE'))
 parser.add_argument('--speed-QA', default='1.0')
 parser.add_argument('--invert-QA', action='store_true', default=False)
 parser.add_argument('--repeat-question', action='store_true', default=False)
+parser.add_argument('--add-number-audio', action='store_true', default=False)
 parser.add_argument('quiz_filename')
 parser.add_argument('output_directory')
 args = parser.parse_args()
@@ -54,4 +55,10 @@ with open(quiz_file) as f:
 
 QuizPolly(lang_Q, lang_A).quiz_list_to_audio(quiz_list, raw_directory, invert_QA)
 
-make_section_mp3_files(raw_directory, output_directory, speed, repeat_question)
+make_section_mp3_files(
+    raw_directory,
+    output_directory,
+    speed,
+    repeat_question,
+    args.add_number_audio
+)

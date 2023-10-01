@@ -5,6 +5,8 @@ from pydub import AudioSegment
 from pydub import effects
 from collections import OrderedDict
 
+NUMBER_AUDIO_DIR = '.number_audio'
+
 # https://stackoverflow.com/questions/43408833/how-to-increase-decrease-playback-speed-on-wav-file
 def speed_change(sound, speed=1.0):
     # Manually override the frame_rate. This tells the computer how many
@@ -18,7 +20,7 @@ def speed_change(sound, speed=1.0):
     # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
-def _combine_QA(file_Q, file_A, speed, repeat_question, pause_duration=500, end_duration=1500):
+def _combine_QA(file_Q, file_A, speed, repeat_question, pause_duration=500, end_duration=2000):
     seg_Q = AudioSegment.from_file(file_Q, 'mp3')
     seg_A = AudioSegment.from_file(file_A, 'mp3')
     pause = AudioSegment.silent(duration=pause_duration)
@@ -66,7 +68,16 @@ def _combine_audio_list(audio_list):
         seg = seg + a
     return seg
 
-def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, section_unit=10, artist='Homebrew'):
+def _make_number_audio(number):
+    from polly import QuizPolly
+    lang = 'en-US'
+    number = str(number)
+    filename = os.path.join(NUMBER_AUDIO_DIR, number + '.mp3')
+    if not os.path.exists(filename):
+        QuizPolly(lang_Q=lang, lang_A=lang).text_to_audio(number, lang, filename)
+    return filename
+
+def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, add_number_audio=False, section_unit=10, artist='Homebrew'):
     numbers = _collect_ordinal_numbers(input_directory)
 
     # separate numbers into sections
@@ -79,6 +90,13 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
         if os.path.exists(section_filename):
             continue
         section_audio_segments = []
+        if add_number_audio:
+            os.makedirs(NUMBER_AUDIO_DIR, exist_ok=True)
+            number = int(start)
+            number_filename = _make_number_audio(number)
+            number_audio = AudioSegment.from_file(number_filename)
+            pause = AudioSegment.silent(duration=500)
+            section_audio_segments.append(number_audio + pause)
 
         for number in numbers_in_section:
             # join corresponding Q & A audio files
