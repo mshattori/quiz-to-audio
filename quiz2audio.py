@@ -10,6 +10,7 @@ parser.add_argument('--lang-QA', default='EE', choices=('EE', 'EJ', 'JE'))
 parser.add_argument('--speed-QA', default='1.0')
 parser.add_argument('--invert-QA', action='store_true', default=False)
 parser.add_argument('--repeat-question', action='store_true', default=False)
+parser.add_argument('--pause-duration', default=500)
 parser.add_argument('--add-number-audio', action='store_true', default=False)
 parser.add_argument('quiz_filename')
 parser.add_argument('output_directory')
@@ -60,5 +61,6 @@ make_section_mp3_files(
     output_directory,
     speed,
     repeat_question,
+    int(args.pause_duration),
     args.add_number_audio
 )

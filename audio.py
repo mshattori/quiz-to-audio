@@ -77,7 +77,7 @@ def _make_number_audio(number):
         QuizPolly(lang_Q=lang, lang_A=lang).text_to_audio(number, lang, filename)
     return filename
 
-def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, add_number_audio=False, section_unit=10, artist='Homebrew'):
+def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, pause_duration=500, add_number_audio=False, section_unit=10, artist='Homebrew'):
     numbers = _collect_ordinal_numbers(input_directory)
 
     # separate numbers into sections
@@ -105,7 +105,7 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
             if not (file_Q and file_A):
                 print('WARN: Corresponding files not found for ', number)
                 continue
-            file_QA = _combine_QA(file_Q, file_A, speed, repeat_question)
+            file_QA = _combine_QA(file_Q, file_A, speed, repeat_question, pause_duration)
             section_audio_segments.append(file_QA)
 
         section_audio = _combine_audio_list(section_audio_segments)
