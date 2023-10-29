@@ -77,6 +77,20 @@ def _make_number_audio(number):
         QuizPolly(lang_Q=lang, lang_A=lang).text_to_audio(number, lang, filename)
     return filename
 
+def _is_section_file_up_to_date(section_filename, input_directory, numbers_in_section):
+    section_file_ts = os.path.getmtime(section_filename)
+
+    for number in numbers_in_section:
+        file_Q = _find_question_file(input_directory, number)
+        file_A = _find_answer_file(input_directory, number)
+        file_Q_ts = os.path.getmtime(file_Q)
+        if section_file_ts < file_Q_ts:
+            return False
+        file_A_ts = os.path.getmtime(file_A)
+        if section_file_ts < file_A_ts:
+            return False
+    return True
+
 def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, pause_duration=500, add_number_audio=False, section_unit=10, artist='Homebrew'):
     numbers = _collect_ordinal_numbers(input_directory)
 
@@ -87,8 +101,13 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
         start, end = numbers_in_section[0], numbers_in_section[-1]
         # make a section filename: e.g. '001-010.mp3'
         section_filename = os.path.join(output_directory, '{}-{}.mp3'.format(start, end))
+        # check if the section filename exists and up-to-date
         if os.path.exists(section_filename):
-            continue
+            if _is_section_file_up_to_date(section_filename, input_directory, numbers_in_section):
+                continue
+            else:
+                print(f'Removing outdated file: {section_filename}')
+                os.remove(section_filename) # remove outdated file
         section_audio_segments = []
         if add_number_audio:
             os.makedirs(NUMBER_AUDIO_DIR, exist_ok=True)
