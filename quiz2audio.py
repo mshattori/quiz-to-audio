@@ -49,7 +49,7 @@ if not os.path.exists(raw_directory):
     os.makedirs(raw_directory)
     print('Created: ' + raw_directory)
 else:
-    print('Raw audiro directory: ' + raw_directory)
+    print('Raw audio directory: ' + raw_directory)
 
 with open(quiz_file) as f:
     quiz_list = [l.rstrip('\n') for l in f.readlines() if l.find(':=') != -1 ]
