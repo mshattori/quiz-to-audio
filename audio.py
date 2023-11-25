@@ -128,7 +128,7 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
             section_audio_segments.append(file_QA)
 
         section_audio = _combine_audio_list(section_audio_segments)
-        album = os.path.basename(output_directory).replace('_', ' ')
+        album = os.path.basename(output_directory).replace('_', ' ').replace('-', ' ')
         tags = { 'title': '{}-{} {}'.format(start, end, album), 'album': album, 'artist': artist }
         # WALKMAN supports ID3v2.3, not v2.4, which is the default value of pydub
         section_audio.export(section_filename, format='mp3', tags=tags, id3v2_version='3')
@@ -139,3 +139,14 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
             if target_file != section_filename:
                 os.remove(target_file)
                 print('Removed "{}"'.format(target_file))
+
+def join_files(filenames, output_filename, title, album, artist):
+    audio_segments = []
+    for file in filenames:
+        audio_segments.append(AudioSegment.from_file(file))
+
+    audio = _combine_audio_list(audio_segments)
+
+    tags = { 'title': title, 'album': album, 'artist': artist }
+
+    audio.export(output_filename, format='mp3', tags=tags, id3v2_version='3')
