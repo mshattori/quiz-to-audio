@@ -2,10 +2,14 @@ import boto3
 import os
 import re
 import random
+import shutil
+import json
+from tempfile import mkdtemp
 from glob import glob
 from contextlib import closing
 
 random.seed(0)  # make it consistent
+
 
 def split_quiz(quiz):
     q_text, a_text = quiz.split(' := ')
@@ -64,10 +68,15 @@ class QuizPolly(object):
         self.voice_group_Q = group_Q
         self.voice_group_A = group_A
 
-    def quiz_list_to_audio(self, quiz_list, output_directory, invert_QA=False):
-        os.stat(output_directory)  # to make sure that the directory exists and otherwise raise an exception
+    def quiz_list_to_audio(self, quiz_list, audio_directory, invert_QA=False):
+        os.stat(audio_directory)  # to make sure that the directory exists and otherwise raise an exception
+        self.quiz_audio_dict = QuizAudioDict(audio_directory)
+        new_directory = mkdtemp()
         for index, quiz in enumerate(quiz_list):
-            self._quiz_to_audio(index, quiz, output_directory, invert_QA)
+            self._quiz_to_audio(index, quiz, new_directory, invert_QA)
+        self.quiz_audio_dict.copy_files(new_directory)
+        shutil.rmtree(audio_directory)
+        os.rename(new_directory, audio_directory)
 
     def _quiz_to_audio(self, index, quiz, output_directory, invert_QA):
         try:
@@ -84,12 +93,15 @@ class QuizPolly(object):
         q_voice, a_voice = self._decide_speakers(index)
         number = '{:03d}'.format(index+1)
         q_filename = os.path.join(output_directory, '-'.join([number, 'Q', q_voice]) + '.mp3')
-        if len(glob(q_filename.replace(q_voice, '*'))) == 0:
-            self.text_to_audio(q_text, q_lang, q_filename, q_voice)
+        self._make_audio(q_text, q_lang, q_filename, q_voice)
         a_filename = os.path.join(output_directory, '-'.join([number, 'A', a_voice]) + '.mp3')
-        if len(glob(a_filename.replace(a_voice, '*'))) == 0:
-            self.text_to_audio(a_text, a_lang, a_filename, a_voice)
+        self._make_audio(a_text, a_lang, a_filename, a_voice)
     
+    def _make_audio(self, text, lang, filename, voice):
+        if not self.quiz_audio_dict.exists(text):
+            self.text_to_audio(text, lang, filename, voice)
+        self.quiz_audio_dict.update_filename(text, os.path.basename(filename))
+
     def _decide_speakers(self, index):
         speaker_Q = self.voice_group_Q.get_speaker()
         speaker_A = self.voice_group_A.get_speaker()
@@ -108,7 +120,7 @@ class QuizPolly(object):
         if os.path.exists(output_filename):
             print('Skip existing file "{}"'.format(output_filename))
             return
-        print('Making "{}"'.format(output_filename))
+        print('Making "{}"'.format(os.path.basename(output_filename)))
 
         resp = self.polly.synthesize_speech(
                             Engine=self.engine,
@@ -119,3 +131,56 @@ class QuizPolly(object):
         with closing(resp['AudioStream']) as stream:
             with open(output_filename, 'wb') as file:
                 file.write(stream.read())
+
+
+class QuizAudioDict:
+    _DICT_FILENAME = '.quiz_audio_dict.json'
+
+    def __init__(self, original_directory):
+        self.orig_directory = original_directory
+        self.orig_dict = {}
+        self.initial = True
+        dict_filename = os.path.join(original_directory, self._DICT_FILENAME)
+        if os.path.exists(dict_filename):
+            self.initial = False
+            with open(dict_filename, encoding='utf-8') as f:
+                loaded_dict = json.load(f)
+            for filename, text in loaded_dict.items():
+                if not os.path.exists(os.path.join(original_directory, filename)):
+                    print(f'"{filename}" had been removed')
+                    continue
+                self.orig_dict[text] = filename
+        self.new_dict = {}
+        self.new_list = []
+
+    def exists(self, text):
+        if self.initial:
+            return True
+        return (text in self.orig_dict or text in self.new_dict)
+
+    def update_filename(self, text, filename):
+        if self.initial:
+            self.orig_dict[text] = filename
+        self.new_list.append((filename, text))
+        self.new_dict[text] = filename
+
+    def copy_files(self, new_directory):
+        '''Copy original files to the new directory with updated name.
+        '''
+        dict_records = {}
+        for (filename, text) in self.new_list:
+            dict_records[filename] = text
+            new_filepath = os.path.join(new_directory, filename)
+            if os.path.exists(new_filepath):
+                continue
+            if text in self.orig_dict:
+                orig_filepath = os.path.join(self.orig_directory, self.orig_dict[text])
+            elif text in self.new_dict:
+                orig_filepath = os.path.join(new_directory, self.new_dict[text])
+            else:
+                raise ValueError(f'Text not exist: "{text}"')
+            shutil.copy2(orig_filepath, new_filepath)
+
+        dict_filename = os.path.join(new_directory, self._DICT_FILENAME)
+        with open(dict_filename, 'w', encoding='utf-8') as f:
+            json.dump(dict_records, f, ensure_ascii=False, indent=2)

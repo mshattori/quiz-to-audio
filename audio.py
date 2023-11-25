@@ -1,6 +1,8 @@
 import os
 import re
 from glob import glob
+import json
+import hashlib
 from pydub import AudioSegment
 from pydub import effects
 from collections import OrderedDict
@@ -77,21 +79,8 @@ def _make_number_audio(number):
         QuizPolly(lang_Q=lang, lang_A=lang).text_to_audio(number, lang, filename)
     return filename
 
-def _is_section_file_up_to_date(section_filename, input_directory, numbers_in_section):
-    section_file_ts = os.path.getmtime(section_filename)
-
-    for number in numbers_in_section:
-        file_Q = _find_question_file(input_directory, number)
-        file_A = _find_answer_file(input_directory, number)
-        file_Q_ts = os.path.getmtime(file_Q)
-        if section_file_ts < file_Q_ts:
-            return False
-        file_A_ts = os.path.getmtime(file_A)
-        if section_file_ts < file_A_ts:
-            return False
-    return True
-
 def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, pause_duration=500, add_number_audio=False, section_unit=10, artist='Homebrew'):
+    signatures = SignatureList(output_directory)
     numbers = _collect_ordinal_numbers(input_directory)
 
     # separate numbers into sections
@@ -99,15 +88,6 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
     for i in range(0, len(numbers), section_unit):
         numbers_in_section = numbers[i:i+section_unit]
         start, end = numbers_in_section[0], numbers_in_section[-1]
-        # make a section filename: e.g. '001-010.mp3'
-        section_filename = os.path.join(output_directory, '{}-{}.mp3'.format(start, end))
-        # check if the section filename exists and up-to-date
-        if os.path.exists(section_filename):
-            if _is_section_file_up_to_date(section_filename, input_directory, numbers_in_section):
-                continue
-            else:
-                print(f'Removing outdated file: {section_filename}')
-                os.remove(section_filename) # remove outdated file
         section_audio_segments = []
         if add_number_audio:
             os.makedirs(NUMBER_AUDIO_DIR, exist_ok=True)
@@ -117,6 +97,7 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
             pause = AudioSegment.silent(duration=500)
             section_audio_segments.append(number_audio + pause)
 
+        section_audio_files = []
         for number in numbers_in_section:
             # join corresponding Q & A audio files
             file_Q = _find_question_file(input_directory, number)
@@ -126,6 +107,19 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
                 continue
             file_QA = _combine_QA(file_Q, file_A, speed, repeat_question, pause_duration)
             section_audio_segments.append(file_QA)
+            section_audio_files.extend([file_Q, file_A])
+
+        # Make a section filename: e.g. '001-010.mp3'
+        section_filename = os.path.join(output_directory, '{}-{}.mp3'.format(start, end))
+        # Check if any of the section audio files is updated
+        section_updated = signatures.updated(section_filename, section_audio_files)
+        if os.path.exists(section_filename):
+            if section_updated:
+                print(f'Removing outdated file: {section_filename}')
+                os.remove(section_filename) # remove outdated file
+            else:
+                # The file exists and there is no change in the section audio files
+                continue
 
         section_audio = _combine_audio_list(section_audio_segments)
         album = os.path.basename(output_directory).replace('_', ' ').replace('-', ' ')
@@ -139,6 +133,8 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
             if target_file != section_filename:
                 os.remove(target_file)
                 print('Removed "{}"'.format(target_file))
+    # Save the signature list file.
+    signatures.save()
 
 def join_files(filenames, output_filename, title, album, artist):
     audio_segments = []
@@ -150,3 +146,40 @@ def join_files(filenames, output_filename, title, album, artist):
     tags = { 'title': title, 'album': album, 'artist': artist }
 
     audio.export(output_filename, format='mp3', tags=tags, id3v2_version='3')
+
+
+class SignatureList:
+    _SIGNATURE_FILENAME = '.signatures.json'
+
+    def __init__(self, output_dir):
+        self.signature_filename = os.path.join(output_dir, self._SIGNATURE_FILENAME)
+        if os.path.exists(self.signature_filename):
+            with open(self.signature_filename) as f:
+                self.signatures_dict = json.load(f)
+        else:
+            self.signatures_dict = {}
+
+    def updated(self, filename, content_files):
+        signature = self._calc_signature(content_files)
+        if filename in self.signatures_dict:
+            if self.signatures_dict[filename] == signature:
+                return False
+        # Update the signature
+        self.signatures_dict[filename] = signature
+        return True
+
+    def save(self):
+        with open(self.signature_filename, 'w') as f:
+            json.dump(self.signatures_dict, f, indent=4)
+
+    @staticmethod
+    def _calc_signature(file_list):
+        hasher = hashlib.md5()
+        for file_name in file_list:
+            with open(file_name, 'rb') as file:
+                while True:
+                    buf = file.read(1024)
+                    if not buf:
+                        break
+                    hasher.update(buf)
+        return hasher.hexdigest()
