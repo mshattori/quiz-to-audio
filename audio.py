@@ -88,29 +88,19 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
     for i in range(0, len(numbers), section_unit):
         numbers_in_section = numbers[i:i+section_unit]
         start, end = numbers_in_section[0], numbers_in_section[-1]
-        section_audio_segments = []
-        if add_number_audio:
-            os.makedirs(NUMBER_AUDIO_DIR, exist_ok=True)
-            number = int(start)
-            number_filename = _make_number_audio(number)
-            number_audio = AudioSegment.from_file(number_filename)
-            pause = AudioSegment.silent(duration=500)
-            section_audio_segments.append(number_audio + pause)
-
+        # Make a section filename: e.g. '001-010.mp3'
+        section_filename = os.path.join(output_directory, '{}-{}.mp3'.format(start, end))
+        # Find corresponding Q & A files for the number
+        section_audio_QA_files = []
         section_audio_files = []
         for number in numbers_in_section:
-            # join corresponding Q & A audio files
             file_Q = _find_question_file(input_directory, number)
             file_A = _find_answer_file(input_directory, number)
             if not (file_Q and file_A):
                 print('WARN: Corresponding files not found for ', number)
                 continue
-            file_QA = _combine_QA(file_Q, file_A, speed, repeat_question, pause_duration)
-            section_audio_segments.append(file_QA)
+            section_audio_QA_files.append((file_Q, file_A))
             section_audio_files.extend([file_Q, file_A])
-
-        # Make a section filename: e.g. '001-010.mp3'
-        section_filename = os.path.join(output_directory, '{}-{}.mp3'.format(start, end))
         # Check if any of the section audio files is updated
         section_updated = signatures.updated(section_filename, section_audio_files)
         if os.path.exists(section_filename):
@@ -120,6 +110,18 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
             else:
                 # The file exists and there is no change in the section audio files
                 continue
+        # Prepare audio segments
+        section_audio_segments = []
+        if add_number_audio:
+            os.makedirs(NUMBER_AUDIO_DIR, exist_ok=True)
+            number = int(start)
+            number_filename = _make_number_audio(number)
+            number_audio = AudioSegment.from_file(number_filename)
+            pause = AudioSegment.silent(duration=500)
+            section_audio_segments.append(number_audio + pause)
+        for (file_Q, file_A) in section_audio_QA_files:
+            file_QA = _combine_QA(file_Q, file_A, speed, repeat_question, pause_duration)
+            section_audio_segments.append(file_QA)
 
         section_audio = _combine_audio_list(section_audio_segments)
         album = os.path.basename(output_directory).replace('_', ' ').replace('-', ' ')

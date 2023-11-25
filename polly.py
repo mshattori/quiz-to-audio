@@ -70,6 +70,7 @@ class QuizPolly(object):
 
     def quiz_list_to_audio(self, quiz_list, audio_directory, invert_QA=False):
         os.stat(audio_directory)  # to make sure that the directory exists and otherwise raise an exception
+        self.original_directory = audio_directory
         self.quiz_audio_dict = QuizAudioDict(audio_directory)
         new_directory = mkdtemp()
         for index, quiz in enumerate(quiz_list):
@@ -98,7 +99,9 @@ class QuizPolly(object):
         self._make_audio(a_text, a_lang, a_filename, a_voice)
     
     def _make_audio(self, text, lang, filename, voice):
-        if not self.quiz_audio_dict.exists(text):
+        original_filename = os.path.join(self.original_directory, os.path.basename(filename))
+        if not self.quiz_audio_dict.exists(text) or not os.path.exists(original_filename):
+            # It's a new text, OR NO dict file and/or NO audio file.
             self.text_to_audio(text, lang, filename, voice)
         self.quiz_audio_dict.update_filename(text, os.path.basename(filename))
 
@@ -139,7 +142,7 @@ class QuizAudioDict:
     def __init__(self, original_directory):
         self.orig_directory = original_directory
         self.orig_dict = {}
-        self.initial = True
+        self.initial = True  # If True, the dict file NOT yet created
         dict_filename = os.path.join(original_directory, self._DICT_FILENAME)
         if os.path.exists(dict_filename):
             self.initial = False
@@ -155,11 +158,14 @@ class QuizAudioDict:
 
     def exists(self, text):
         if self.initial:
+            # Always return True to prevent it from creating new file, because audio files
+            # could have been created before QuizAudioDict was implemented.
             return True
         return (text in self.orig_dict or text in self.new_dict)
 
     def update_filename(self, text, filename):
         if self.initial:
+            # At initial attempt, assume that it already exists in the orig dict.
             self.orig_dict[text] = filename
         self.new_list.append((filename, text))
         self.new_dict[text] = filename
