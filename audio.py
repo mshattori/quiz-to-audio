@@ -160,6 +160,7 @@ class SignatureList:
             self.signatures_dict = {}
 
     def updated(self, filename, content_files):
+        filename = os.path.basename(filename)
         signature = self._calc_signature(content_files)
         if filename in self.signatures_dict:
             if self.signatures_dict[filename] == signature:
