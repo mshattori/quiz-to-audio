@@ -4,9 +4,11 @@ import re
 import random
 import shutil
 import json
+import io
 from tempfile import mkdtemp
 from glob import glob
 from contextlib import closing
+from pydub import AudioSegment
 
 random.seed(0)  # make it consistent
 
@@ -114,17 +116,58 @@ class QuizPolly(object):
         return speaker_Q, speaker_A
 
     def text_to_audio(self, text, lang, output_filename, voice=None):
+        if os.path.exists(output_filename):
+            print('Skip existing file "{}"'.format(output_filename))
+            return
         if not voice:
             if self.lang_Q == lang:
                 voice = self.voice_group_Q.get_speaker()
             elif self.lang_A == lang:
                 voice = self.voice_group_A.get_speaker()
-
-        if os.path.exists(output_filename):
-            print('Skip existing file "{}"'.format(output_filename))
-            return
         print('Making "{}"'.format(os.path.basename(output_filename)))
+        audio = self._text_to_audio_segment_with_split(text, lang, voice)
+        audio.export(output_filename, format='mp3')
 
+    def _text_to_audio_segment_with_split(self, text, lang, voice):
+        print(f'Handling: "{text}"')
+        def split_by_synonym_blocks(text):
+            blocks = []
+            while True:
+                m = re.search(r'\[\=([^]]+)\]', text)
+                if not m:
+                    blocks.append(text)
+                    break
+                blocks.append(text[0:m.start()])
+                blocks.append('equals ' + m.group(1))
+                text = text[m.end():]
+            return [b.strip() for b in blocks if b.strip()]
+        def split_by_commas(text):
+            blocks = re.split(r'[,;、]\s*', text)
+            return [b.strip() for b in blocks if b.strip()]
+
+        synonym_pause = AudioSegment.silent(duration=1000)
+        comma_pause = AudioSegment.silent(duration=500)
+        audio_segment_list = []
+        for block in split_by_synonym_blocks(text):
+            sub_segment_list = []
+            for sub_block in split_by_commas(block):
+                print(f'-- "{sub_block}"')
+                audio = self._text_to_audio_segment(sub_block, lang, voice)
+                sub_segment_list.extend([audio, comma_pause])
+            if sub_segment_list:
+                sub_segment_list.pop()  # Remove the last pause
+            audio_segment_list.extend(sub_segment_list)
+            audio_segment_list.append(synonym_pause)
+        if audio_segment_list:
+            audio_segment_list.pop()  # Remove the last pause
+        # Join segments
+        combined_audio = audio_segment_list[0]
+        for segment in audio_segment_list[1:]:
+            combined_audio += segment
+        print(f'Done: "{text}"')
+        return combined_audio
+
+    def _text_to_audio_segment(self, text, lang, voice):
         resp = self.polly.synthesize_speech(
                             Engine=self.engine,
                             LanguageCode=lang,
@@ -132,8 +175,8 @@ class QuizPolly(object):
                             Text=text,
                             VoiceId=voice)
         with closing(resp['AudioStream']) as stream:
-            with open(output_filename, 'wb') as file:
-                file.write(stream.read())
+            audio_content = stream.read()
+        return AudioSegment.from_file(io.BytesIO(audio_content), format='mp3')
 
 
 class QuizAudioDict:
