@@ -52,7 +52,7 @@ else:
     print('Raw audio directory: ' + raw_directory)
 
 with open(quiz_file) as f:
-    quiz_list = [l.rstrip('\n') for l in f.readlines() if l.lstrip()[0] != '#' and l.find(':=') != -1 ]
+    quiz_list = [l.rstrip('\n') for l in f.readlines() if len(l.strip()) > 0  and l.lstrip()[0] != '#' and l.find(':=') != -1 ]
 
 QuizPolly(lang_Q, lang_A).quiz_list_to_audio(quiz_list, raw_directory, invert_QA)
 
