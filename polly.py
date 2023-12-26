@@ -145,7 +145,7 @@ class QuizPolly(object):
             blocks = re.split(r'[,;、]\s*', text)
             return [b.strip() for b in blocks if b.strip()]
 
-        synonym_pause = AudioSegment.silent(duration=1000)
+        synonym_pause = AudioSegment.silent(duration=1200)
         comma_pause = AudioSegment.silent(duration=500)
         audio_segment_list = []
         for block in split_by_synonym_blocks(text):
