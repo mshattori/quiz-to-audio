@@ -12,15 +12,23 @@ from pydub import AudioSegment
 
 random.seed(0)  # make it consistent
 
+# Pattern to match a paren that can contain inner parens
+PAREN_PATTERN = r'\([^()]+(?:\([^()]+\)[^()]*)*\)'
 
 def split_quiz(quiz):
     q_text, a_text = quiz.split(' := ')
-    q_text = re.sub('\(.*\)', '', q_text)
-    a_text = re.sub('\(.*\)', '', a_text)
+    q_text = re.sub(PAREN_PATTERN, '', q_text)
+    a_text = re.sub(PAREN_PATTERN, '', a_text)
     if re.search('[()]', q_text) or  re.search('[()]', a_text):
         raise ValueError('Unmatched paren: "{}"'.format(quiz))
 
-    return q_text.strip(), a_text.strip()
+    q_text, a_text = q_text.strip(), a_text.strip()
+    if len(q_text) == 0 or len(a_text) == 0:
+        raise ValueError(f'Q or A is empty: {quiz}')
+    # Replace slash '/' sign with comma plus 'or'
+    q_text = re.sub(r'\s*/\s*', ', or ', q_text)
+    a_text = re.sub(r'\s*/\s*', ', or ', a_text)
+    return (q_text, a_text)
 
 class SpeakerGroup(object):
     EXCLUDE_VOICES = ('Ivy', 'Justin', 'Kevin', 'Matthew')
@@ -124,12 +132,11 @@ class QuizPolly(object):
                 voice = self.voice_group_Q.get_speaker()
             elif self.lang_A == lang:
                 voice = self.voice_group_A.get_speaker()
-        print('Making "{}"'.format(os.path.basename(output_filename)))
+        print('Making "{file}" for "{text}"'.format(file=os.path.basename(output_filename), text=text))
         audio = self._text_to_audio_segment_with_split(text, lang, voice)
         audio.export(output_filename, format='mp3')
 
     def _text_to_audio_segment_with_split(self, text, lang, voice):
-        print(f'Handling: "{text}"')
         def split_by_synonym_blocks(text):
             blocks = []
             while True:
@@ -151,7 +158,6 @@ class QuizPolly(object):
         for block in split_by_synonym_blocks(text):
             sub_segment_list = []
             for sub_block in split_by_commas(block):
-                print(f'-- "{sub_block}"')
                 audio = self._text_to_audio_segment(sub_block, lang, voice)
                 sub_segment_list.extend([audio, comma_pause])
             if sub_segment_list:
@@ -164,7 +170,6 @@ class QuizPolly(object):
         combined_audio = audio_segment_list[0]
         for segment in audio_segment_list[1:]:
             combined_audio += segment
-        print(f'Done: "{text}"')
         return combined_audio
 
     def _text_to_audio_segment(self, text, lang, voice):
