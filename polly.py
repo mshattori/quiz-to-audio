@@ -13,13 +13,13 @@ from pydub import AudioSegment
 random.seed(0)  # make it consistent
 
 # Pattern to match a paren that can contain inner parens
-PAREN_PATTERN = r'\([^()]+(?:\([^()]+\)[^()]*)*\)'
+PAREN_PATTERN = r'\([^()]*(?:\([^()]+\)[^()]*)*\)'
 
 def split_quiz(quiz):
     q_text, a_text = quiz.split(' := ')
     q_text = re.sub(PAREN_PATTERN, '', q_text)
     a_text = re.sub(PAREN_PATTERN, '', a_text)
-    if re.search('[()]', q_text) or  re.search('[()]', a_text):
+    if re.search('[()]', q_text) or re.search('[()]', a_text):
         raise ValueError('Unmatched paren: "{}"'.format(quiz))
 
     q_text, a_text = q_text.strip(), a_text.strip()
