@@ -7,7 +7,8 @@ from pydub import AudioSegment
 from pydub import effects
 from collections import OrderedDict
 
-NUMBER_AUDIO_DIR = '.number_audio'
+PARENT_DIR = os.path.dirname(os.path.realpath(__file__))
+NUMBER_AUDIO_DIR = os.path.join(PARENT_DIR, '.number_audio')
 
 # https://stackoverflow.com/questions/43408833/how-to-increase-decrease-playback-speed-on-wav-file
 def speed_change(sound, speed=1.0):
@@ -138,10 +139,19 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
     # Save the signature list file.
     signatures.save()
 
-def join_files(filenames, output_filename, title, album, artist):
+def join_files(filenames, output_filename, title, album, artist, silence):
+    silent_segment = None
+    if silence > 0:
+        silent_segment = AudioSegment.silent(duration=silence)
+
     audio_segments = []
     for file in filenames:
+        print(file)
         audio_segments.append(AudioSegment.from_file(file))
+        if os.path.splitext(file)[0].endswith('+'):
+            continue
+        if silent_segment:
+            audio_segments.append(silent_segment)
 
     audio = _combine_audio_list(audio_segments)
 

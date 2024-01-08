@@ -9,9 +9,10 @@ if __name__ == '__main__':
     parser.add_argument('--title', required=True, help='Title of the track')
     parser.add_argument('--album', required=True, help='Album name')
     parser.add_argument('--artist', required=True, help='Artist name')
+    parser.add_argument('--silence', '-s', required=False, type=int, default=0, help='Duration of silence between tracks (milli-second)')
     parser.add_argument('inputs', nargs='+', help='Input audio files')
 
     args = parser.parse_args()
 
-    join_files(args.inputs, args.output_filename, args.title, args.album, args.artist)
+    join_files(args.inputs, args.output_filename, args.title, args.album, args.artist, args.silence)
     print('Created', args.output_filename)
