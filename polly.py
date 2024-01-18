@@ -108,12 +108,11 @@ class QuizPolly(object):
         a_filename = os.path.join(output_directory, '-'.join([number, 'A', a_voice]) + '.mp3')
         self._make_audio(a_text, a_lang, a_filename, a_voice)
     
-    def _make_audio(self, text, lang, filename, voice):
-        original_filename = os.path.join(self.original_directory, os.path.basename(filename))
-        if not self.quiz_audio_dict.exists(text) or not os.path.exists(original_filename):
-            # It's a new text, OR NO dict file and/or NO audio file.
-            self.text_to_audio(text, lang, filename, voice)
-        self.quiz_audio_dict.update_filename(text, os.path.basename(filename))
+    def _make_audio(self, text, lang, filepath, voice):
+        filename = os.path.basename(filepath)
+        if not self.quiz_audio_dict.exists(text, filename):
+            self.text_to_audio(text, lang, filepath, voice)
+        self.quiz_audio_dict.update_filename(text, filename)
 
     def _decide_speakers(self, index):
         speaker_Q = self.voice_group_Q.get_speaker()
@@ -204,19 +203,26 @@ class QuizAudioDict:
         self.new_dict = {}
         self.new_list = []
 
-    def exists(self, text):
+    def exists(self, text, filename):
         if self.initial:
-            # Always return True to prevent it from creating new file, because audio files
-            # could have been created before QuizAudioDict was implemented.
-            return True
+            # Return True to prevent it from creating new file if audio files had been created
+            # before the dict file was implemented.
+            orig_filepath = os.path.join(self.orig_directory, filename)
+            if os.path.exists(orig_filepath):
+                return True
         return (text in self.orig_dict or text in self.new_dict)
 
     def update_filename(self, text, filename):
         if self.initial:
-            # At initial attempt, assume that it already exists in the orig dict.
-            self.orig_dict[text] = filename
+            # At initial attempt and if the file exits, assume that the orig dict contains the record.
+            # It allows it to copy the file from the orig directory in self.copy_file() later.
+            orig_filepath = os.path.join(self.orig_directory, filename)
+            if os.path.exists(orig_filepath):
+                self.orig_dict[text] = filename
         self.new_list.append((filename, text))
-        self.new_dict[text] = filename
+        # If exists, must not overwrite. It allows it to copy existing the audio file as the new
+        # filename when there are the same text in different Q&A items.
+        self.new_dict.setdefault(text, filename)
 
     def copy_files(self, new_directory):
         '''Copy original files to the new directory with updated name.
