@@ -23,6 +23,11 @@ def speed_change(sound, speed=1.0):
     # know how to play audio at standard frame rate (like 44.1k)
     return sound_with_altered_frame_rate.set_frame_rate(sound.frame_rate)
 
+def speed_change_file(file_path, speed=1.0):
+    sound = AudioSegment.from_file(file_path, 'mp3')
+    sound = speed_change(sound, speed)
+    sound.export(file_path, format='mp3')
+
 def _combine_QA(file_Q, file_A, speed, repeat_question, pause_duration=500, end_duration=2000):
     seg_Q = AudioSegment.from_file(file_Q, 'mp3')
     seg_A = AudioSegment.from_file(file_A, 'mp3')
