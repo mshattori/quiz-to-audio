@@ -68,6 +68,37 @@ class SpeakerGroup(object):
         random.shuffle(self._speakers)
         return self._speakers[0]
 
+class SimplePolly(object):
+    def __init__(self, lang, speaker=None, engine='neural'):
+        self.polly = boto3.client('polly')
+        self.engine = engine
+        self.lang = lang
+        if speaker:
+            self.speaker = speaker
+        else:
+            self.speaker = SpeakerGroup.get_speaker_names(lang, engine)[0]
+
+    def make_audio_file(self, text, output_filename):
+        if os.path.exists(output_filename):
+            print('Skip existing file "{}"'.format(output_filename))
+            return
+        if not os.path.exists(os.path.dirname(output_filename)):
+            os.makedirs(os.path.dirname(output_filename))
+        audit = self._make_audio(text)
+        print(output_filename, text)
+        audit.export(output_filename, format='mp3')
+
+    def _make_audio(self, text):
+        resp = self.polly.synthesize_speech(
+                            Engine=self.engine,
+                            LanguageCode=self.lang,
+                            OutputFormat='mp3',
+                            Text=text,
+                            VoiceId=self.speaker)
+        with closing(resp['AudioStream']) as stream:
+            audio_content = stream.read()
+        return AudioSegment.from_file(io.BytesIO(audio_content), format='mp3')
+
 class QuizPolly(object):
     def __init__(self, lang_Q, lang_A, engine='neural'):
         self.polly = boto3.client('polly')
