@@ -78,22 +78,28 @@ class SimplePolly(object):
         else:
             self.speaker = SpeakerGroup.get_speaker_names(lang, engine)[0]
 
-    def make_audio_file(self, text, output_filename):
+    def make_audio_file(self, text, output_filename, speed=None):
         if os.path.exists(output_filename):
             print('Skip existing file "{}"'.format(output_filename))
             return
         if not os.path.exists(os.path.dirname(output_filename)):
             os.makedirs(os.path.dirname(output_filename))
-        audit = self._make_audio(text)
+        audit = self._make_audio(text, speed)
         print(output_filename, text)
         audit.export(output_filename, format='mp3')
 
-    def _make_audio(self, text):
+    def _make_audio(self, text, speed):
+        text_type = 'text'
+        if speed:
+            text = f'<speak><prosody rate="{speed}">{text}</prosody></speak>'
+            text_type = 'ssml'
+
         resp = self.polly.synthesize_speech(
                             Engine=self.engine,
                             LanguageCode=self.lang,
                             OutputFormat='mp3',
                             Text=text,
+                            TextType=text_type,
                             VoiceId=self.speaker)
         with closing(resp['AudioStream']) as stream:
             audio_content = stream.read()
