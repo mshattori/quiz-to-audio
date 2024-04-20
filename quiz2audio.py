@@ -12,6 +12,7 @@ parser.add_argument('--invert-QA', action='store_true', default=False)
 parser.add_argument('--repeat-question', action='store_true', default=False)
 parser.add_argument('--pause-duration', default='500')
 parser.add_argument('--add-number-audio', action='store_true', default=False)
+parser.add_argument('--split-by-comma', action='store_true', default=False)
 parser.add_argument('quiz_filename')
 parser.add_argument('output_directory')
 args = parser.parse_args()
@@ -32,8 +33,6 @@ if speed.find(':') > 0:
     speed = (float(speed_Q), float(speed_A))
 else:
     speed = (float(speed), float(speed))
-invert_QA = args.invert_QA
-repeat_question = args.repeat_question
 
 if not os.path.isfile(quiz_file):
     print('File not found: ' + quiz_file)
@@ -54,13 +53,13 @@ else:
 with open(quiz_file) as f:
     quiz_list = [l.rstrip('\n') for l in f.readlines() if len(l.strip()) > 0  and l.lstrip()[0] != '#' and l.find(':=') != -1 ]
 
-QuizPolly(lang_Q, lang_A).quiz_list_to_audio(quiz_list, raw_directory, invert_QA)
+QuizPolly(lang_Q, lang_A).quiz_list_to_audio(quiz_list, raw_directory, args.invert_QA, args.split_by_comma)
 
 make_section_mp3_files(
     raw_directory,
     output_directory,
     speed,
-    repeat_question,
+    args.repeat_question,
     int(args.pause_duration),
     args.add_number_audio
 )

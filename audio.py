@@ -85,7 +85,12 @@ def _make_number_audio(number):
         QuizPolly(lang_Q=lang, lang_A=lang).text_to_audio(number, lang, filename)
     return filename
 
+#
+# Main routine
+#
 def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, pause_duration=500, add_number_audio=False, section_unit=10, artist='Homebrew'):
+    """Make section mp3 files by combining raw Q & A mp3 files made by Polly.
+    """
     signatures = SignatureList(output_directory)
     numbers = _collect_ordinal_numbers(input_directory)
 

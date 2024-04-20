@@ -115,24 +115,26 @@ class QuizPolly(object):
         self.voice_group_Q = group_Q
         self.voice_group_A = group_A
 
-    def quiz_list_to_audio(self, quiz_list, audio_directory, invert_QA=False):
+    def quiz_list_to_audio(self, quiz_list, audio_directory, invert_QA, split_by_comma):
+        self.invert_QA = invert_QA
+        self.split_by_comma = split_by_comma
         os.stat(audio_directory)  # to make sure that the directory exists and otherwise raise an exception
         self.original_directory = audio_directory
         self.quiz_audio_dict = QuizAudioDict(audio_directory)
         new_directory = mkdtemp()
         for index, quiz in enumerate(quiz_list):
-            self._quiz_to_audio(index, quiz, new_directory, invert_QA)
+            self._quiz_to_audio(index, quiz, new_directory)
         self.quiz_audio_dict.copy_files(new_directory)
         shutil.rmtree(audio_directory)
         os.rename(new_directory, audio_directory)
 
-    def _quiz_to_audio(self, index, quiz, output_directory, invert_QA):
+    def _quiz_to_audio(self, index, quiz, output_directory):
         try:
             q_text, a_text = split_quiz(quiz)
         except ValueError as e:
             print('Failed to convert: ({}) "{}"'.format(index+1, quiz))
             raise e
-        if invert_QA:
+        if self.invert_QA:
             q_text, a_text = a_text, q_text
         q_lang, a_lang = self.voice_group_Q.lang, self.voice_group_A.lang
         # Raw audio filename convention:
@@ -169,10 +171,11 @@ class QuizPolly(object):
             elif self.lang_A == lang:
                 voice = self.voice_group_A.get_speaker()
         print('Making "{file}" for "{text}"'.format(file=os.path.basename(output_filename), text=text))
-        audio = self._text_to_audio_segment_with_split(text, lang, voice)
+        audio = self._convert_text_to_audio_segment_with_split_pause(text, lang, voice)
         audio.export(output_filename, format='mp3')
 
-    def _text_to_audio_segment_with_split(self, text, lang, voice):
+    def _convert_text_to_audio_segment_with_split_pause(self, text, lang, voice):
+        # split by synonym block: e.g. [=stick to]
         def split_by_synonym_blocks(text):
             blocks = []
             while True:
@@ -192,13 +195,17 @@ class QuizPolly(object):
         comma_pause = AudioSegment.silent(duration=500)
         audio_segment_list = []
         for block in split_by_synonym_blocks(text):
-            sub_segment_list = []
-            for sub_block in split_by_commas(block):
-                audio = self._text_to_audio_segment(sub_block, lang, voice)
-                sub_segment_list.extend([audio, comma_pause])
-            if sub_segment_list:
-                sub_segment_list.pop()  # Remove the last pause
-            audio_segment_list.extend(sub_segment_list)
+            if self.split_by_comma:
+                sub_segment_list = []
+                for sub_block in split_by_commas(block):
+                    audio = self._convert_text_to_audio_segment(sub_block, lang, voice)
+                    sub_segment_list.extend([audio, comma_pause])
+                if sub_segment_list:
+                    sub_segment_list.pop()  # Remove the last pause
+                audio_segment_list.extend(sub_segment_list)
+            else:
+                audio = self._convert_text_to_audio_segment(block, lang, voice)
+                audio_segment_list.append(audio)
             audio_segment_list.append(synonym_pause)
         if audio_segment_list:
             audio_segment_list.pop()  # Remove the last pause
@@ -208,7 +215,7 @@ class QuizPolly(object):
             combined_audio += segment
         return combined_audio
 
-    def _text_to_audio_segment(self, text, lang, voice):
+    def _convert_text_to_audio_segment(self, text, lang, voice):
         resp = self.polly.synthesize_speech(
                             Engine=self.engine,
                             LanguageCode=lang,
