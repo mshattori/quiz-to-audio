@@ -50,8 +50,14 @@ if not os.path.exists(raw_directory):
 else:
     print('Raw audio directory: ' + raw_directory)
 
+def is_skip_line(l):
+    return (len(l.strip()) <= 0 or
+            l.lstrip()[0] == '#' or
+            l.find(':=') == -1 or
+            re.fullmatch('\s*\(.*\)\s*', l))
+
 with open(quiz_file) as f:
-    quiz_list = [l.rstrip('\n') for l in f.readlines() if len(l.strip()) > 0  and l.lstrip()[0] != '#' and l.find(':=') != -1 ]
+    quiz_list = [l.rstrip('\n') for l in f.readlines() if not is_skip_line(l)]
 
 QuizPolly(lang_Q, lang_A).quiz_list_to_audio(quiz_list, raw_directory, args.invert_QA, args.split_by_comma)
 
