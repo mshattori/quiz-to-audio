@@ -16,6 +16,9 @@ if __name__ == '__main__':
     if not os.path.isdir('output'):
         os.mkdir('output')
     for filename in os.listdir(args.dirname):
+        if not os.path.splitext(filename)[1] in ('.mp3', '.m4a', '.wav'):
+            print(f'Skipping {filename}')
+            continue
         filepath = os.path.join(args.dirname, filename)
         audio = AudioSegment.from_file(filepath)
         title = os.path.splitext(os.path.basename(filepath))[0]
