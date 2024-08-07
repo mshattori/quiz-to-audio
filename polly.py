@@ -288,3 +288,38 @@ class QuizAudioDict:
         dict_filename = os.path.join(new_directory, self._DICT_FILENAME)
         with open(dict_filename, 'w', encoding='utf-8') as f:
             json.dump(dict_records, f, ensure_ascii=False, indent=2)
+
+def list_speakers(lang):
+    print(SpeakerGroup.get_speaker_names(lang, engine='neural'))
+
+def synthesize_speech(lang, speaker, input_file, output_file):
+    with open(input_file, 'r') as f:
+        text = ''
+        for line in f.readlines():
+            if line.strip().startswith('#'):
+                continue
+            text += line
+    SimplePolly(lang, speaker).make_audio_file(text, output_file)
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+    parser = ArgumentParser(description="Polly text-to-speech command line tool")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    # Define the 'speakers' command
+    subparser = subparsers.add_parser('speakers', help='List available speakers')
+    subparser.add_argument('--lang', '-l', required=True, help='Language code')
+    # Define the 'synthesize' command
+    subparser = subparsers.add_parser('synthesize', help='Synthesize speech from text')
+    subparser.add_argument('--lang', '-l', required=True, help='Language code')
+    subparser.add_argument('--speaker', '-s', required=True, help='Speaker name')
+    subparser.add_argument('--input-file', '-i', required=True, help='Input text file')
+    subparser.add_argument('--output-file', '-o', required=False, default=None, help='Output audio file')
+
+    args = parser.parse_args()
+
+    if args.command == 'speakers':
+        list_speakers(args.lang)
+    elif args.command == 'synthesize':
+        if not args.output_file:
+            args.output_file = os.path.splitext(args.input_file)[0] + '.mp3'
+        synthesize_speech(args.lang, args.speaker, args.input_file, args.output_file)
