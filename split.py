@@ -5,7 +5,7 @@ import argparse
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 
-def split_by_silence(input_file, output_dir, min_silence_len, silence_thresh):
+def split_by_silence(input_file, output_dir, min_silence_len, silence_thresh, album=None):
     """
     Splits an audio file into segments based on silence.
 
@@ -30,14 +30,17 @@ def split_by_silence(input_file, output_dir, min_silence_len, silence_thresh):
 
     # Export each chunk as a separate file
     stemname = os.path.splitext(os.path.basename(input_file))[0]
-    for i, chunk in enumerate(audio_chunks):
-        output_filename = os.path.join(output_dir, f'{stemname}_{i}.mp3')
+    for index, chunk in enumerate(audio_chunks):
+        title = f'{stemname}-{index:02d}'
+        output_filename = os.path.join(output_dir, f'{title}.mp3')
+        tags = {'title': title, 'album': album, 'artist': 'Homebrew'}
+        chunk.export(output_filename, format='mp3', tags=tags, id3v2_version='3')
         chunk.export(output_filename, format='mp3')
         print(f'Created {output_filename}')
 
     return audio_chunks
 
-def split_by_duration(input_file, segment_minutes, output_dir, overlap=5):
+def split_by_duration(input_file, segment_minutes, output_dir, overlap=5, album=None):
     """
     Splits an audio file into segments based on the specified duration and overlap.
 
@@ -71,8 +74,10 @@ def split_by_duration(input_file, segment_minutes, output_dir, overlap=5):
         end_ms = min(start_ms + segment_duration_ms, len(audio))
         segment = audio[start_ms:end_ms]
 
-        output_filename = os.path.join(output_dir, f'{stemname}-{index}.mp3')
-        segment.export(output_filename, format='mp3')
+        title = f'{stemname}-{index:02d}'
+        output_filename = os.path.join(output_dir, f'{title}.mp3')
+        tags = {'title': title, 'album': album, 'artist': 'Homebrew'}
+        segment.export(output_filename, format='mp3', tags=tags, id3v2_version='3')
         print(f'Created {output_filename}')
 
         yield output_filename, start_ms, end_ms
@@ -90,20 +95,22 @@ def main():
     parser_silence.add_argument('--output_dir', '-d', help='Output directory', default=os.path.join(os.getcwd(), 'split_audio_files'))
     parser_silence.add_argument('--min_silence_len', type=int, default=800, help='Minimum length of silence to consider for a split (in milliseconds)')
     parser_silence.add_argument('--silence_thresh', type=int, default=-20, help='Silence threshold (in dB)')
+    parser_silence.add_argument('--album', type=str, default='Split audio', help='Album name')
 
     # 'duration' subcommand
     parser_duration = subparsers.add_parser('duration', help='Split audio by duration')
     parser_duration.add_argument('input_file', help='Input audio file')
     parser_duration.add_argument('--output_dir', '-d', help='Output directory', default=os.path.join(os.getcwd(), 'split_audio_files'))
-    parser_duration.add_argument('--segment_minutes', '-m', type=int, required=True, help='Length of each segment in minutes')
+    parser_duration.add_argument('--segment_minutes', '-m', type=float, required=True, help='Length of each segment in minutes')
     parser_duration.add_argument('--overlap', type=int, default=5, help='Overlap between segments in seconds')
+    parser_duration.add_argument('--album', type=str, default='Split audio', help='Album name')
 
     args = parser.parse_args()
 
     if args.command == 'silence':
-        split_by_silence(args.input_file, args.output_dir, args.min_silence_len, args.silence_thresh)
+        split_by_silence(args.input_file, args.output_dir, args.min_silence_len, args.silence_thresh, args.album)
     elif args.command == 'duration':
-        for result in split_by_duration(args.input_file, args.segment_minutes, args.output_dir, args.overlap):
+        for result in split_by_duration(args.input_file, args.segment_minutes, args.output_dir, args.overlap, args.album):
             print(result)
     else:
         parser.print_help()
