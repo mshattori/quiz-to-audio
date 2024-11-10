@@ -82,8 +82,9 @@ class SimplePolly(object):
         if os.path.exists(output_filename):
             print('Skip existing file "{}"'.format(output_filename))
             return
-        if not os.path.exists(os.path.dirname(output_filename)):
-            os.makedirs(os.path.dirname(output_filename))
+        parent_dir = os.path.dirname(output_filename)
+        if parent_dir and not os.path.exists(parent_dir):
+            os.makedirs(parent_dir)
         audit = self._make_audio(text, speed)
         print(output_filename, text)
         audit.export(output_filename, format='mp3')
