@@ -24,7 +24,7 @@ def split_quiz(quiz):
 
     q_text, a_text = q_text.strip(), a_text.strip()
     if len(q_text) == 0 or len(a_text) == 0:
-        raise ValueError(f'Q or A is empty: {quiz}')
+        raise ValueError(f'Q or A is empty: "{quiz}"')
     # Replace slash '/' sign with comma plus 'or'
     q_text = re.sub(r'\s*/\s*', ', or ', q_text)
     a_text = re.sub(r'\s*/\s*', ', or ', a_text)
@@ -123,18 +123,19 @@ class QuizPolly(object):
         self.original_directory = audio_directory
         self.quiz_audio_dict = QuizAudioDict(audio_directory)
         new_directory = mkdtemp()
-        for index, quiz in enumerate(quiz_list):
-            self._quiz_to_audio(index, quiz, new_directory)
+        try:
+            quiz_list = [split_quiz(quiz) for quiz in quiz_list]
+        except ValueError as e:
+            print(f'Failed to convert: {str(e)}')
+            raise e
+        for index, q_a in enumerate(quiz_list):
+            q_text, a_text = q_a
+            self._quiz_to_audio(index, q_text, a_text, new_directory)
         self.quiz_audio_dict.copy_files(new_directory)
         shutil.rmtree(audio_directory)
         os.rename(new_directory, audio_directory)
 
-    def _quiz_to_audio(self, index, quiz, output_directory):
-        try:
-            q_text, a_text = split_quiz(quiz)
-        except ValueError as e:
-            print('Failed to convert: ({}) "{}"'.format(index+1, quiz))
-            raise e
+    def _quiz_to_audio(self, index, q_text, a_text, output_directory):
         if self.invert_QA:
             q_text, a_text = a_text, q_text
         q_lang, a_lang = self.voice_group_Q.lang, self.voice_group_A.lang
