@@ -10,6 +10,18 @@ from glob import glob
 from contextlib import closing
 from pydub import AudioSegment
 
+# References:
+# Amazon Polly:
+# - https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly.html
+# - https://aws.amazon.com/jp/polly/pricing/
+# OpenAI:
+# - https://platform.openai.com/docs/api-reference/audio/createSpeech
+# - https://openai.com/api/pricing/
+# Note:
+# polly neural: 16 USD / 1M characters
+# polly long-form: 100 USD / 1M characters
+# openai TTS: 15 USD / 1M characters
+
 random.seed(0)  # make it consistent
 
 # Pattern to match a paren that can contain inner parens
