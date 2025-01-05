@@ -7,7 +7,10 @@ from audio import make_section_mp3_files
 
 def main():
     import argparse
+    from dotenv import load_dotenv
+
     parser = argparse.ArgumentParser()
+    parser.add_argument('--env-file', '-e', default='.env')
     parser.add_argument('--lang-QA', default='EE', choices=('EE', 'EJ', 'JE'))
     parser.add_argument('--speed-QA', default='1.0')
     parser.add_argument('--invert-QA', action='store_true', default=False)
@@ -19,6 +22,8 @@ def main():
     parser.add_argument('quiz_filename')
     parser.add_argument('output_directory')
     args = parser.parse_args()
+
+    load_dotenv(args.env_file, override=True)
 
     quiz_file = args.quiz_filename 
     output_directory = args.output_directory 

@@ -1,4 +1,5 @@
 import boto3
+from openai import OpenAI
 import os
 import re
 import random
@@ -94,9 +95,34 @@ class AmazonPollyEngine(object):
         except ValueError:
             return value  # Return the original value if it cannot be converted to float
 
+class OpenAISpeechEngine(object):
+    def __init__(self, engine='tts-1'):
+        self.engine = engine
+        self.openai = OpenAI()
+
+    def text_to_audio(self, text, lang, voice, speed=None):
+        response = self.openai.audio.speech.create(
+            model=self.engine,
+            input=text,
+            voice=voice,
+            response_format='mp3',
+            speed=speed or 1.0
+        )
+
+        audio_content = io.BytesIO(response.content)
+        return AudioSegment.from_file(audio_content, format='mp3')
+
+    def get_speakers(self, lang):
+        return ['alloy', 'ash', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer']
+
 def init_tts_engine(engine):
     if engine in ('standard', 'neural', 'long-form', 'generative'):
         return AmazonPollyEngine(engine)
+    elif engine.startswith('openai-') and engine.split('-', maxsplit=1)[1] in ('tts-1', 'tts-1-hd'):
+        engine = engine.split('-', maxsplit=1)[1]
+        return OpenAISpeechEngine(engine)
+    else:
+        raise ValueError(f'Invalid engine: "{engine}"')
 
 class SpeakerGroup(object):
     @classmethod
@@ -183,9 +209,9 @@ class QuizTTS(object):
         #   - number: 3-digit number with left 0 padding
         q_voice, a_voice = self._decide_speakers(index)
         number = '{:03d}'.format(index+1)
-        q_filename = os.path.join(output_directory, '-'.join([number, 'Q', q_voice, str(self.speed_Q)]) + '.mp3')
+        q_filename = os.path.join(output_directory, '-'.join([number, 'Q', q_voice.title(), str(self.speed_Q)]) + '.mp3')
         self._make_audio(q_text, 'Q', q_filename, q_voice)
-        a_filename = os.path.join(output_directory, '-'.join([number, 'A', a_voice, str(self.speed_A)]) + '.mp3')
+        a_filename = os.path.join(output_directory, '-'.join([number, 'A', a_voice.title(), str(self.speed_A)]) + '.mp3')
         self._make_audio(a_text, 'A', a_filename, a_voice)
     
     def _make_audio(self, text, side, filepath, voice):
@@ -340,6 +366,7 @@ def synthesize_speech(lang, speaker, input_file, output_file, engine=None, speed
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
+    from dotenv import load_dotenv
     parser = ArgumentParser(description="Polly text-to-speech command line tool")
     subparsers = parser.add_subparsers(dest="command", required=True)
     # Define the 'speakers' command
@@ -348,13 +375,15 @@ if __name__ == '__main__':
     # Define the 'synthesize' command
     subparser = subparsers.add_parser('synthesize', help='Synthesize speech from text')
     subparser.add_argument('--lang', '-l', required=True, help='Language code')
-    subparser.add_argument('--speaker', '-s', default=None, help='Speaker name')
+    subparser.add_argument('--speaker', default=None, help='Speaker name')
     subparser.add_argument('--input-file', '-i', required=True, help='Input text file')
     subparser.add_argument('--output-file', '-o', required=False, default=None, help='Output audio file')
-    subparser.add_argument('--engine', '-e', required=False, default='neural', help='TTS engine')
-    subparser.add_argument('--speed', '-sp', required=False, default=None, help='Speech speed')
+    subparser.add_argument('--engine', required=False, default='neural', help='TTS engine')
+    subparser.add_argument('--speed', required=False, default=None, help='Speech speed')
+    subparser.add_argument('--env-file', required=False, default='.env', help='Environment file')
 
     args = parser.parse_args()
+    load_dotenv(args.env_file, override=True)
 
     if args.command == 'speakers':
         list_speakers(args.lang)
