@@ -50,6 +50,7 @@ class AmazonPollyEngine(object):
 
     def text_to_audio(self, text, lang, voice, speed=None):
         if speed:
+            speed = self._convert_to_percentage(speed)
             text = f'<speak><prosody rate="{speed}">{text}</prosody></speak>'
             text_type = 'ssml'
         else:
@@ -71,6 +72,27 @@ class AmazonPollyEngine(object):
         voices = list(filter(lambda v: v not in self.EXCLUDE_VOICES, voices))
         random.shuffle(voices)
         return voices
+
+    @staticmethod
+    def _convert_to_percentage(value):
+        """
+        Converts any decimal value between 0 and 1 to a percentage string.
+
+        Args:
+            value: The value to convert (str).
+
+        Returns:
+            The converted value as a percentage string (str).
+        """
+        try:
+            float_value = float(value)
+            if 0 <= float_value <= 1:
+                percentage = int(float_value * 100)
+                return f"{percentage}%"
+            else:
+                return value  # Return the original value if it's outside the range 0 to 1
+        except ValueError:
+            return value  # Return the original value if it cannot be converted to float
 
 def init_tts_engine(engine):
     if engine in ('standard', 'neural', 'long-form', 'generative'):
@@ -123,13 +145,15 @@ class SimpleTTS(object):
         audio.export(output_filename, format='mp3')
 
 class QuizTTS(object):
-    def __init__(self, lang_Q, lang_A, engine_Q='neural', engine_A='neural'):
+    def __init__(self, lang_Q, lang_A, engine_Q='neural', engine_A='neural', speed_Q=1.0, speed_A=1.0):
         self.polly = boto3.client('polly')
         self.engine_Q = init_tts_engine(engine_Q)
         self.engine_A = init_tts_engine(engine_A)
         group_Q, group_A = SpeakerGroup.make_speaker_groups(lang_Q, lang_A, engine_Q, engine_A)
         self.voice_group_Q = group_Q
         self.voice_group_A = group_A
+        self.speed_Q = speed_Q
+        self.speed_A = speed_A
 
     def quiz_list_to_audio(self, quiz_list, audio_directory, invert_QA, split_by_comma):
         self.invert_QA = invert_QA
@@ -159,9 +183,9 @@ class QuizTTS(object):
         #   - number: 3-digit number with left 0 padding
         q_voice, a_voice = self._decide_speakers(index)
         number = '{:03d}'.format(index+1)
-        q_filename = os.path.join(output_directory, '-'.join([number, 'Q', q_voice]) + '.mp3')
+        q_filename = os.path.join(output_directory, '-'.join([number, 'Q', q_voice, str(self.speed_Q)]) + '.mp3')
         self._make_audio(q_text, 'Q', q_filename, q_voice)
-        a_filename = os.path.join(output_directory, '-'.join([number, 'A', a_voice]) + '.mp3')
+        a_filename = os.path.join(output_directory, '-'.join([number, 'A', a_voice, str(self.speed_A)]) + '.mp3')
         self._make_audio(a_text, 'A', a_filename, a_voice)
     
     def _make_audio(self, text, side, filepath, voice):
@@ -231,12 +255,14 @@ class QuizTTS(object):
         if side == 'Q':
             engine = self.engine_Q
             lang = self.voice_group_Q.lang
+            speed = self.speed_Q
         elif side == 'A':
             engine = self.engine_A
             lang = self.voice_group_A.lang
+            speed = self.speed_A
         else:
             raise ValueError('Invalid side: "{}"'.format(side))
-        return engine.text_to_audio(text, lang, voice)
+        return engine.text_to_audio(text, lang, voice, speed)
 
 class QuizAudioDict:
     _DICT_FILENAME = '.quiz_audio_dict.json'
@@ -303,14 +329,14 @@ class QuizAudioDict:
 def list_speakers(lang):
     print(SpeakerGroup.get_speaker_names(lang, engine='neural'))
 
-def synthesize_speech(lang, speaker, input_file, output_file):
+def synthesize_speech(lang, speaker, input_file, output_file, engine=None, speed=None):
     with open(input_file, 'r') as f:
         text = ''
         for line in f.readlines():
             if line.strip().startswith('#'):
                 continue
             text += line
-    SimpleTTS(lang, speaker).make_audio_file(text, output_file)
+    SimpleTTS(lang, speaker, engine).make_audio_file(text, output_file, speed)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -322,9 +348,11 @@ if __name__ == '__main__':
     # Define the 'synthesize' command
     subparser = subparsers.add_parser('synthesize', help='Synthesize speech from text')
     subparser.add_argument('--lang', '-l', required=True, help='Language code')
-    subparser.add_argument('--speaker', '-s', required=True, help='Speaker name')
+    subparser.add_argument('--speaker', '-s', default=None, help='Speaker name')
     subparser.add_argument('--input-file', '-i', required=True, help='Input text file')
     subparser.add_argument('--output-file', '-o', required=False, default=None, help='Output audio file')
+    subparser.add_argument('--engine', '-e', required=False, default='neural', help='TTS engine')
+    subparser.add_argument('--speed', '-sp', required=False, default=None, help='Speech speed')
 
     args = parser.parse_args()
 
@@ -333,4 +361,4 @@ if __name__ == '__main__':
     elif args.command == 'synthesize':
         if not args.output_file:
             args.output_file = os.path.splitext(args.input_file)[0] + '.mp3'
-        synthesize_speech(args.lang, args.speaker, args.input_file, args.output_file)
+        synthesize_speech(args.lang, args.speaker, args.input_file, args.output_file, args.engine, args.speed)

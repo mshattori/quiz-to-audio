@@ -35,9 +35,9 @@ def main():
         sys.exit(1)
     if speed.find(':') > 0:
         speed_Q, speed_A = speed.split(':')
-        speed = (float(speed_Q), float(speed_A))
+        speed_Q, speed_A = float(speed_Q), float(speed_A)
     else:
-        speed = (float(speed), float(speed))
+        speed_Q, speed_A = float(speed), float(speed)
     # Convert engine
     engine_Q, engine_A = None, None
     if args.engine:
@@ -64,8 +64,10 @@ def main():
     with open(quiz_file) as f:
         quiz_list = [l.rstrip('\n') for l in f.readlines() if not _is_skip_line(l)]
 
-    QuizTTS(lang_Q, lang_A, engine_Q, engine_A).quiz_list_to_audio(quiz_list, raw_directory, args.invert_QA, args.split_by_comma)
+    tts = QuizTTS(lang_Q, lang_A, engine_Q, engine_A, speed_Q, speed_A)
+    tts.quiz_list_to_audio(quiz_list, raw_directory, args.invert_QA, args.split_by_comma)
 
+    speed = (1.0, 1.0)  # No speed change here
     make_section_mp3_files(
         raw_directory,
         output_directory,

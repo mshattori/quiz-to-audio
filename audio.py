@@ -48,7 +48,7 @@ def _collect_ordinal_numbers(input_directory):
     numbers_set = set()
 
     for question_file in glob(os.path.join(input_directory, '*-Q-*.mp3')):
-        number_match_pattern = os.path.join(input_directory, '(\d+)-Q-(\w+).mp3')
+        number_match_pattern = os.path.join(input_directory, '(\d+)-Q-(.+).mp3')
         m = re.match(number_match_pattern, question_file)
         if not m:
             print('WARN: Unexpected file', question_file)
