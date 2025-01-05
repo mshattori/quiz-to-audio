@@ -310,7 +310,7 @@ def synthesize_speech(lang, speaker, input_file, output_file):
             if line.strip().startswith('#'):
                 continue
             text += line
-    SimplePolly(lang, speaker).make_audio_file(text, output_file)
+    SimpleTTS(lang, speaker).make_audio_file(text, output_file)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
