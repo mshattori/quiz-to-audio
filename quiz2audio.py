@@ -2,7 +2,7 @@
 import os
 import sys
 import re
-from polly import QuizPolly
+from tts import QuizTTS
 from audio import make_section_mp3_files
 
 def main():
@@ -11,6 +11,7 @@ def main():
     parser.add_argument('--lang-QA', default='EE', choices=('EE', 'EJ', 'JE'))
     parser.add_argument('--speed-QA', default='1.0')
     parser.add_argument('--invert-QA', action='store_true', default=False)
+    parser.add_argument('--engine', default=None)
     parser.add_argument('--repeat-question', action='store_true', default=False)
     parser.add_argument('--pause-duration', default='500')
     parser.add_argument('--add-number-audio', action='store_true', default=False)
@@ -21,11 +22,13 @@ def main():
 
     quiz_file = args.quiz_filename 
     output_directory = args.output_directory 
+    # Convert language code
     lang_Q, lang_A = 'en-US', 'en-US'
     if args.lang_QA == 'EJ':
         lang_A = 'ja-JP'
     if args.lang_QA == 'JE':
         lang_Q = 'ja-JP'
+    # Convert speed
     speed = args.speed_QA
     if not re.fullmatch(r'\d+(\.\d+)?(:\d+(\.\d+)?)?', speed):
         print('Invalid speed format. The correct format is "0.9", "1.0:0.9", etc.')
@@ -35,7 +38,13 @@ def main():
         speed = (float(speed_Q), float(speed_A))
     else:
         speed = (float(speed), float(speed))
-
+    # Convert engine
+    engine_Q, engine_A = None, None
+    if args.engine:
+        if args.engine.find(':') == -1:
+            engine_Q, engine_A = args.engine, args.engine
+        else:
+            engine_Q, engine_A = args.engine.split(':')
     if not os.path.isfile(quiz_file):
         print('File not found: ' + quiz_file)
         sys.exit(1)
@@ -55,7 +64,7 @@ def main():
     with open(quiz_file) as f:
         quiz_list = [l.rstrip('\n') for l in f.readlines() if not _is_skip_line(l)]
 
-    QuizPolly(lang_Q, lang_A).quiz_list_to_audio(quiz_list, raw_directory, args.invert_QA, args.split_by_comma)
+    QuizTTS(lang_Q, lang_A, engine_Q, engine_A).quiz_list_to_audio(quiz_list, raw_directory, args.invert_QA, args.split_by_comma)
 
     make_section_mp3_files(
         raw_directory,

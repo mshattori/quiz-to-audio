@@ -10,18 +10,6 @@ from glob import glob
 from contextlib import closing
 from pydub import AudioSegment
 
-# References:
-# Amazon Polly:
-# - https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly.html
-# - https://aws.amazon.com/jp/polly/pricing/
-# OpenAI:
-# - https://platform.openai.com/docs/api-reference/audio/createSpeech
-# - https://openai.com/api/pricing/
-# Note:
-# polly neural: 16 USD / 1M characters
-# polly long-form: 100 USD / 1M characters
-# openai TTS: 15 USD / 1M characters
-
 random.seed(0)  # make it consistent
 
 # Pattern to match a paren that can contain inner parens
@@ -42,31 +30,65 @@ def split_quiz(quiz):
     a_text = re.sub(r'\s*/\s*', ', or ', a_text)
     return (q_text, a_text)
 
-class SpeakerGroup(object):
+# References:
+# Amazon Polly:
+# - https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/polly.html
+# - https://aws.amazon.com/jp/polly/pricing/
+# OpenAI:
+# - https://platform.openai.com/docs/api-reference/audio/createSpeech
+# - https://openai.com/api/pricing/
+# Note:
+# polly neural: 16 USD / 1M characters
+# polly long-form: 100 USD / 1M characters
+# openai TTS: 15 USD / 1M characters
+class AmazonPollyEngine(object):
     EXCLUDE_VOICES = ('Ivy', 'Justin', 'Kevin', 'Matthew')
 
-    @classmethod
-    def make_speaker_groups(cls, lang_Q, lang_A, engine):
-        if lang_Q == lang_A:
-            speakers = cls.get_speaker_names(lang_Q, engine)
-            n = int(len(speakers)/2)
-            group_Q = SpeakerGroup(lang_Q, speakers[0:n])
-            group_A = SpeakerGroup(lang_A, speakers[n:])
-        else:
-            speakers_Q = cls.get_speaker_names(lang_Q, engine)
-            group_Q = SpeakerGroup(lang_Q, speakers_Q)
-            speakers_A = cls.get_speaker_names(lang_A, engine)
-            group_A = SpeakerGroup(lang_A, speakers_A)
-        return group_Q, group_A
+    def __init__(self, engine='neural'):
+        self.polly = boto3.client('polly')
+        self.engine = engine
 
-    @classmethod
-    def get_speaker_names(cls, lang, engine):
-        polly = boto3.client('polly')
-        resp = polly.describe_voices(Engine=engine, LanguageCode=lang)
+    def text_to_audio(self, text, lang, voice, speed=None):
+        if speed:
+            text = f'<speak><prosody rate="{speed}">{text}</prosody></speak>'
+            text_type = 'ssml'
+        else:
+            text_type = 'text'
+        resp = self.polly.synthesize_speech(
+                            Engine=self.engine,
+                            LanguageCode=lang,
+                            OutputFormat='mp3',
+                            Text=text,
+                            TextType=text_type,
+                            VoiceId=voice)
+        with closing(resp['AudioStream']) as stream:
+            audio_content = stream.read()
+        return AudioSegment.from_file(io.BytesIO(audio_content), format='mp3')
+
+    def get_speakers(self, lang):
+        resp = self.polly.describe_voices(Engine=self.engine, LanguageCode=lang)
         voices = [voice['Name'] for voice in resp['Voices']]
-        voices = list(filter(lambda v: v not in cls.EXCLUDE_VOICES, voices))
+        voices = list(filter(lambda v: v not in self.EXCLUDE_VOICES, voices))
         random.shuffle(voices)
         return voices
+
+def init_tts_engine(engine):
+    if engine in ('standard', 'neural', 'long-form', 'generative'):
+        return AmazonPollyEngine(engine)
+
+class SpeakerGroup(object):
+    @classmethod
+    def make_speaker_groups(cls, lang_Q, lang_A, engine_Q, engine_A):
+        speakers_Q = init_tts_engine(engine_Q).get_speakers(lang_Q)
+        speakers_A = init_tts_engine(engine_A).get_speakers(lang_A)
+        if set(speakers_Q) != set(speakers_A):
+            group_Q = SpeakerGroup(lang_Q, speakers_Q)
+            group_A = SpeakerGroup(lang_A, speakers_A)
+        else:
+            n = int(len(speakers_Q)/2)
+            group_Q = SpeakerGroup(lang_Q, speakers_Q[0:n])
+            group_A = SpeakerGroup(lang_A, speakers_Q[n:])
+        return group_Q, group_A
 
     def __init__(self, lang, speakers):
         self._lang = lang
@@ -80,15 +102,14 @@ class SpeakerGroup(object):
         random.shuffle(self._speakers)
         return self._speakers[0]
 
-class SimplePolly(object):
+class SimpleTTS(object):
     def __init__(self, lang, speaker=None, engine='neural'):
-        self.polly = boto3.client('polly')
-        self.engine = engine
+        self.engine = init_tts_engine(engine)
         self.lang = lang
         if speaker:
             self.speaker = speaker
         else:
-            self.speaker = SpeakerGroup.get_speaker_names(lang, engine)[0]
+            self.speaker = self.engine.get_speakers(lang)[0]
 
     def make_audio_file(self, text, output_filename, speed=None):
         if os.path.exists(output_filename):
@@ -97,34 +118,16 @@ class SimplePolly(object):
         parent_dir = os.path.dirname(output_filename)
         if parent_dir and not os.path.exists(parent_dir):
             os.makedirs(parent_dir)
-        audit = self._make_audio(text, speed)
+        audio = self.engine.text_to_audio(text, self.lang, self.speaker, speed)
         print(output_filename, text)
-        audit.export(output_filename, format='mp3')
+        audio.export(output_filename, format='mp3')
 
-    def _make_audio(self, text, speed):
-        text_type = 'text'
-        if speed:
-            text = f'<speak><prosody rate="{speed}">{text}</prosody></speak>'
-            text_type = 'ssml'
-
-        resp = self.polly.synthesize_speech(
-                            Engine=self.engine,
-                            LanguageCode=self.lang,
-                            OutputFormat='mp3',
-                            Text=text,
-                            TextType=text_type,
-                            VoiceId=self.speaker)
-        with closing(resp['AudioStream']) as stream:
-            audio_content = stream.read()
-        return AudioSegment.from_file(io.BytesIO(audio_content), format='mp3')
-
-class QuizPolly(object):
-    def __init__(self, lang_Q, lang_A, engine='neural'):
+class QuizTTS(object):
+    def __init__(self, lang_Q, lang_A, engine_Q='neural', engine_A='neural'):
         self.polly = boto3.client('polly')
-        self.engine = engine
-        group_Q, group_A = SpeakerGroup.make_speaker_groups(lang_Q, lang_A, engine)
-        self.lang_Q = lang_Q
-        self.lang_A = lang_A
+        self.engine_Q = init_tts_engine(engine_Q)
+        self.engine_A = init_tts_engine(engine_A)
+        group_Q, group_A = SpeakerGroup.make_speaker_groups(lang_Q, lang_A, engine_Q, engine_A)
         self.voice_group_Q = group_Q
         self.voice_group_A = group_A
 
@@ -157,14 +160,14 @@ class QuizPolly(object):
         q_voice, a_voice = self._decide_speakers(index)
         number = '{:03d}'.format(index+1)
         q_filename = os.path.join(output_directory, '-'.join([number, 'Q', q_voice]) + '.mp3')
-        self._make_audio(q_text, q_lang, q_filename, q_voice)
+        self._make_audio(q_text, 'Q', q_filename, q_voice)
         a_filename = os.path.join(output_directory, '-'.join([number, 'A', a_voice]) + '.mp3')
-        self._make_audio(a_text, a_lang, a_filename, a_voice)
+        self._make_audio(a_text, 'A', a_filename, a_voice)
     
-    def _make_audio(self, text, lang, filepath, voice):
+    def _make_audio(self, text, side, filepath, voice):
         filename = os.path.basename(filepath)
         if not self.quiz_audio_dict.exists(text, filename):
-            self.text_to_audio(text, lang, filepath, voice)
+            self.text_to_audio(text, side, filepath, voice)
         self.quiz_audio_dict.update_filename(text, filename)
 
     def _decide_speakers(self, index):
@@ -175,20 +178,15 @@ class QuizPolly(object):
             speaker_Q, speaker_A = speaker_A, speaker_Q
         return speaker_Q, speaker_A
 
-    def text_to_audio(self, text, lang, output_filename, voice=None):
+    def text_to_audio(self, text, side, output_filename, voice):
         if os.path.exists(output_filename):
             print('Skip existing file "{}"'.format(output_filename))
             return
-        if not voice:
-            if self.lang_Q == lang:
-                voice = self.voice_group_Q.get_speaker()
-            elif self.lang_A == lang:
-                voice = self.voice_group_A.get_speaker()
         print('Making "{file}" for "{text}"'.format(file=os.path.basename(output_filename), text=text))
-        audio = self._convert_text_to_audio_segment_with_split_pause(text, lang, voice)
+        audio = self._convert_text_to_audio_segment_with_split_pause(text, side, voice)
         audio.export(output_filename, format='mp3')
 
-    def _convert_text_to_audio_segment_with_split_pause(self, text, lang, voice):
+    def _convert_text_to_audio_segment_with_split_pause(self, text, side, voice):
         # split by synonym block: e.g. [=stick to]
         def split_by_synonym_blocks(text):
             blocks = []
@@ -212,13 +210,13 @@ class QuizPolly(object):
             if self.split_by_comma:
                 sub_segment_list = []
                 for sub_block in split_by_commas(block):
-                    audio = self._convert_text_to_audio_segment(sub_block, lang, voice)
+                    audio = self._convert_text_to_audio_segment(sub_block, side, voice)
                     sub_segment_list.extend([audio, comma_pause])
                 if sub_segment_list:
                     sub_segment_list.pop()  # Remove the last pause
                 audio_segment_list.extend(sub_segment_list)
             else:
-                audio = self._convert_text_to_audio_segment(block, lang, voice)
+                audio = self._convert_text_to_audio_segment(block, side, voice)
                 audio_segment_list.append(audio)
             audio_segment_list.append(synonym_pause)
         if audio_segment_list:
@@ -229,17 +227,16 @@ class QuizPolly(object):
             combined_audio += segment
         return combined_audio
 
-    def _convert_text_to_audio_segment(self, text, lang, voice):
-        resp = self.polly.synthesize_speech(
-                            Engine=self.engine,
-                            LanguageCode=lang,
-                            OutputFormat='mp3',
-                            Text=text,
-                            VoiceId=voice)
-        with closing(resp['AudioStream']) as stream:
-            audio_content = stream.read()
-        return AudioSegment.from_file(io.BytesIO(audio_content), format='mp3')
-
+    def _convert_text_to_audio_segment(self, text, side, voice):
+        if side == 'Q':
+            engine = self.engine_Q
+            lang = self.voice_group_Q.lang
+        elif side == 'A':
+            engine = self.engine_A
+            lang = self.voice_group_A.lang
+        else:
+            raise ValueError('Invalid side: "{}"'.format(side))
+        return engine.text_to_audio(text, lang, voice)
 
 class QuizAudioDict:
     _DICT_FILENAME = '.quiz_audio_dict.json'

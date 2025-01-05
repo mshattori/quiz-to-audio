@@ -77,12 +77,12 @@ def _combine_audio_list(audio_list):
     return seg
 
 def _make_number_audio(number):
-    from polly import QuizPolly
+    from tts import SimpleTTS
     lang = 'en-US'
     number = str(number)
     filename = os.path.join(NUMBER_AUDIO_DIR, number + '.mp3')
     if not os.path.exists(filename):
-        QuizPolly(lang_Q=lang, lang_A=lang).text_to_audio(number, lang, filename)
+        SimpleTTS(lang).make_audio_file(number, filename)
     return filename
 
 #
