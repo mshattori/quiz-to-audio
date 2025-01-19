@@ -14,6 +14,7 @@ def main():
     parser.add_argument('--lang-QA', default='EE', choices=('EE', 'EJ', 'JE'))
     parser.add_argument('--speed-QA', default='1.0')
     parser.add_argument('--invert-QA', action='store_true', default=False)
+    parser.add_argument('--gain', default='0.0')
     parser.add_argument('--engine', default=None)
     parser.add_argument('--repeat-question', action='store_true', default=False)
     parser.add_argument('--pause-duration', default='500')
@@ -77,6 +78,7 @@ def main():
         raw_directory,
         output_directory,
         speed,
+        float(args.gain),
         args.repeat_question,
         int(args.pause_duration),
         args.add_number_audio

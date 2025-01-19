@@ -48,7 +48,7 @@ def _collect_ordinal_numbers(input_directory):
     numbers_set = set()
 
     for question_file in glob(os.path.join(input_directory, '*-Q-*.mp3')):
-        number_match_pattern = os.path.join(input_directory, '(\d+)-Q-(.+).mp3')
+        number_match_pattern = os.path.join(input_directory, r'(\d+)-Q-(.+).mp3')
         m = re.match(number_match_pattern, question_file)
         if not m:
             print('WARN: Unexpected file', question_file)
@@ -88,7 +88,7 @@ def _make_number_audio(number):
 #
 # Main routine
 #
-def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), repeat_question=True, pause_duration=500, add_number_audio=False, section_unit=10, artist='Homebrew'):
+def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), gain=0.0, repeat_question=True, pause_duration=500, add_number_audio=False, section_unit=10, artist='Homebrew'):
     """Make section mp3 files by combining raw Q & A mp3 files made by Polly.
     """
     signatures = SignatureList(output_directory)
@@ -135,6 +135,8 @@ def make_section_mp3_files(input_directory, output_directory, speed=(1.0, 1.0), 
             section_audio_segments.append(file_QA)
 
         section_audio = _combine_audio_list(section_audio_segments)
+        if gain != 0.0:
+            section_audio = section_audio.apply_gain(gain)
         album = os.path.basename(output_directory).replace('_', ' ').replace('-', ' ').title()
         tags = { 'title': '{}-{} {}'.format(start, end, album), 'album': album, 'artist': artist }
         # WALKMAN supports ID3v2.3, not v2.4, which is the default value of pydub
