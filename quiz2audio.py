@@ -67,11 +67,8 @@ def main():
     else:
         print('Raw audio directory: ' + raw_directory)
 
-    with open(quiz_file) as f:
-        quiz_list = [l.rstrip('\n') for l in f.readlines() if not _is_skip_line(l)]
-
     tts = QuizTTS(lang_Q, lang_A, engine_Q, engine_A, speed_Q, speed_A)
-    tts.quiz_list_to_audio(quiz_list, raw_directory, args.invert_QA, args.split_by_comma)
+    tts.quiz_list_to_audio(quiz_file, raw_directory, args.invert_QA, args.split_by_comma)
 
     speed = (1.0, 1.0)  # No speed change here
     make_section_mp3_files(
@@ -83,12 +80,6 @@ def main():
         int(args.pause_duration),
         args.add_number_audio
     )
-
-def _is_skip_line(l):
-    return (len(l.strip()) <= 0 or
-            l.lstrip()[0] == '#' or
-            l.find(':=') == -1 or
-            re.fullmatch('\s*\(.*\)\s*', l))
 
 if __name__ == '__main__':
     main()

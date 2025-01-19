@@ -16,7 +16,19 @@ random.seed(0)  # make it consistent
 # Pattern to match a paren that can contain inner parens
 PAREN_PATTERN = r'\([^()]*(?:\([^()]+\)[^()]*)*\)'
 
-def split_quiz(quiz):
+def load_quiz(quiz_file):
+    with open(quiz_file, encoding='utf-8') as f:
+        lines = f.readlines()
+    quiz_lines = [l.strip() for l in lines if not _is_skip_line(l)]
+    return [_split_quiz(quiz) for quiz in quiz_lines]
+
+def _is_skip_line(l):
+    return (len(l.strip()) <= 0 or
+            l.lstrip()[0] == '#' or
+            l.find(':=') == -1 or
+            re.fullmatch('\s*\(.*\)\s*', l)) # skip lines that contain only parens
+
+def _split_quiz(quiz):
     q_text, a_text = quiz.split(' := ')
     q_text = re.sub(PAREN_PATTERN, '', q_text)
     a_text = re.sub(PAREN_PATTERN, '', a_text)
@@ -181,7 +193,7 @@ class QuizTTS(object):
         self.speed_Q = speed_Q
         self.speed_A = speed_A
 
-    def quiz_list_to_audio(self, quiz_list, audio_directory, invert_QA, split_by_comma):
+    def quiz_list_to_audio(self, quiz_file, audio_directory, invert_QA, split_by_comma):
         self.invert_QA = invert_QA
         self.split_by_comma = split_by_comma
         os.stat(audio_directory)  # to make sure that the directory exists and otherwise raise an exception
@@ -189,7 +201,7 @@ class QuizTTS(object):
         self.quiz_audio_dict = QuizAudioDict(audio_directory)
         new_directory = mkdtemp()
         try:
-            quiz_list = [split_quiz(quiz) for quiz in quiz_list]
+            quiz_list = load_quiz(quiz_file)
         except ValueError as e:
             print(f'Failed to convert: {str(e)}')
             raise e
@@ -355,6 +367,19 @@ class QuizAudioDict:
 def list_speakers(lang):
     print(SpeakerGroup.get_speaker_names(lang, engine='neural'))
 
+def calculate_cost(text, engine, exchange_rate):
+    char_count = len(text)
+    if engine == 'neural':
+        cost_usd = (char_count / 1_000_000) * 16
+    elif engine == 'long-form':
+        cost_usd = (char_count / 1_000_000) * 100
+    elif engine.startswith('openai-'):
+        cost_usd = (char_count / 1_000_000) * 15
+    else:
+        raise ValueError(f'Invalid engine: "{engine}"')
+    cost_jpy = cost_usd * exchange_rate
+    return cost_jpy
+
 def synthesize_speech(lang, speaker, input_file, output_file, engine=None, speed=None):
     with open(input_file, 'r') as f:
         text = ''
@@ -372,6 +397,7 @@ if __name__ == '__main__':
     # Define the 'speakers' command
     subparser = subparsers.add_parser('speakers', help='List available speakers')
     subparser.add_argument('--lang', '-l', required=True, help='Language code')
+    subparser.add_argument('--env-file', required=False, default='.env', help='Environment file')
     # Define the 'synthesize' command
     subparser = subparsers.add_parser('synthesize', help='Synthesize speech from text')
     subparser.add_argument('--lang', '-l', required=True, help='Language code')
@@ -381,13 +407,26 @@ if __name__ == '__main__':
     subparser.add_argument('--engine', required=False, default='neural', help='TTS engine')
     subparser.add_argument('--speed', required=False, default=None, help='Speech speed')
     subparser.add_argument('--env-file', required=False, default='.env', help='Environment file')
+    # Define the 'calculate-cost' command
+    subparser = subparsers.add_parser('calc-cost', help='Calculate the cost of synthesizing speech')
+    subparser.add_argument('--engine', required=False, default='neural', help='TTS engine')
+    subparser.add_argument('--exchange-rate', required=False, type=float, default=1.5, help='Exchange rate from USD to JPY')
+    subparser.add_argument('input_file', help='Input text file')
 
     args = parser.parse_args()
-    load_dotenv(args.env_file, override=True)
-
     if args.command == 'speakers':
+        load_dotenv(args.env_file, override=True)
         list_speakers(args.lang)
     elif args.command == 'synthesize':
+        load_dotenv(args.env_file, override=True)
         if not args.output_file:
             args.output_file = os.path.splitext(args.input_file)[0] + '.mp3'
         synthesize_speech(args.lang, args.speaker, args.input_file, args.output_file, args.engine, args.speed)
+    elif args.command == 'calc-cost':
+        quiz_list = load_quiz(args.input_file)
+        text = '\n'.join([q + '\n' + a for q, a in quiz_list])
+        cost_jpy = calculate_cost(text, args.engine, args.exchange_rate)
+        print(f'Size: {len(text)} characters, Cost: {cost_jpy:.2f} JPY')
+    else:
+        print('Invalid command:', args.command)
+        parser.print_help()
