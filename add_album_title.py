@@ -29,7 +29,7 @@ if __name__ == '__main__':
         os.mkdir(args.output_dir)
 
     # Process each audio file in the input directory
-    for filename in os.listdir(args.dirname):
+    for filename in sorted(os.listdir(args.dirname)):
         if not os.path.splitext(filename)[1] in ('.mp3', '.m4a', '.wav'):
             print(f'Skipping {filename}')
             continue
