@@ -16,7 +16,8 @@ def trim_silence(input_file, min_silence_len=2000, silence_thresh=-25, keep_sile
     sound = AudioSegment.from_file(input_file)
     
     # Load beep sound
-    beep_sound = AudioSegment.from_file('.number_audio/beep.mp3')
+    dirname = os.path.dirname(__file__)
+    beep_sound = AudioSegment.from_file(os.path.join(dirname, '.number_audio', 'beep.mp3'))
 
     # Find non-silent chunks
     chunks = silence.split_on_silence(sound, min_silence_len=min_silence_len, silence_thresh=silence_thresh, keep_silence=keep_silence)
