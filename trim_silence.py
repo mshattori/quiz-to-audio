@@ -124,7 +124,7 @@ def test_and_display_candidates(input_file, candidates):
     
     return results
 
-def get_user_threshold_choice(results, candidates):
+def get_user_threshold_choice(results):
     """Let user choose threshold from candidates or enter custom value."""
     print(f"\nRecommendations:")
     print(f"  • 20-40% reduction: Good balance")
@@ -208,7 +208,7 @@ def smart_threshold_selection(input_file):
         return -25
     
     # 4. Let user choose
-    chosen_threshold = get_user_threshold_choice(results, candidates)
+    chosen_threshold = get_user_threshold_choice(results)
     
     print(f"\nSelected threshold: {chosen_threshold}dB")
     return chosen_threshold
