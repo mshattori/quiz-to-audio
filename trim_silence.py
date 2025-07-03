@@ -214,6 +214,40 @@ def smart_threshold_selection(input_file):
     return chosen_threshold
 
 def main():
+    """
+    Main function for intelligent silence trimming with optimal threshold detection.
+    
+    Understanding dBFS (decibels relative to Full Scale):
+    - dBFS is always negative or zero
+    -   0 dBFS = maximum volume (clipping)
+    -  -6 dBFS = half volume
+    - -20 dBFS = quiet speech
+    - -60 dBFS = very quiet (almost silent)
+    
+    Volume comparison (smaller numbers = quieter):
+    - -10 dBFS > -20 dBFS > -30 dBFS
+    - "-10 is LOUDER than -30"
+    
+    Practical examples:
+    - Music peaks: -3 to 0 dBFS
+    - Normal conversation: -12 to -18 dBFS
+    - Background noise: -40 to -60 dBFS
+    - Complete silence: -∞ dBFS
+    
+    Recommended thresholds by content type:
+    - Podcasts/conversations: -25 to -30dB
+    - Music: -35 to -40dB
+    - Noisy recordings: -15 to -20dB
+
+    Silence threshold selection:
+    - -t -20: Treats -20dBFS and below as silence (aggressive)
+    - -t -30: Treats -30dBFS and below as silence (conservative)
+    
+    Usage modes:
+    1. Interactive selection (recommended): script analyzes audio and presents options
+    2. Auto mode (--auto): automatically selects best threshold (~40% reduction)
+    3. Manual mode (-t): use specific threshold value
+    """
     parser = argparse.ArgumentParser(description='Intelligently trim silence from audio files using optimal threshold detection.')
     parser.add_argument('--min-silence', '-m', type=float, default=2.0, help='Minimum length of silence in seconds')
     parser.add_argument('--threshold', '-t', type=int, help='Silence threshold in dB (if not provided, smart selection is used)')
