@@ -1,0 +1,14 @@
+[project]
+name = "quiz-to-audio"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "mutagen==1.47.0",
+    "pydub==0.25.1",
+    "boto3==1.34.7",
+    "openai==1.14.1",
+    "python-dotenv==1.0.1",
+    "numpy>=2.0.2",
+]
