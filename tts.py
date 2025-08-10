@@ -26,7 +26,7 @@ def _is_skip_line(l):
     return (len(l.strip()) <= 0 or
             l.lstrip()[0] == '#' or
             l.find(':=') == -1 or
-            re.fullmatch('\s*\(.*\)\s*', l)) # skip lines that contain only parens
+            re.fullmatch(r'\s*\(.*\)\s*', l)) # skip lines that contain only parens
 
 def _split_quiz(quiz):
     q_text, a_text = quiz.split(' := ')
@@ -364,8 +364,10 @@ class QuizAudioDict:
         with open(dict_filename, 'w', encoding='utf-8') as f:
             json.dump(dict_records, f, ensure_ascii=False, indent=2)
 
-def list_speakers(lang):
-    print(SpeakerGroup.get_speaker_names(lang, engine='neural'))
+def list_speakers(lang, engine):
+    tts_engine = init_tts_engine(engine)
+    speakers = tts_engine.get_speakers(lang)
+    print('\n'.join(speakers))
 
 def calculate_cost(text, engine, exchange_rate):
     char_count = len(text)
@@ -397,6 +399,7 @@ if __name__ == '__main__':
     # Define the 'speakers' command
     subparser = subparsers.add_parser('speakers', help='List available speakers')
     subparser.add_argument('--lang', '-l', required=True, help='Language code')
+    subparser.add_argument('--engine', required=False, default='neural', help='TTS engine')
     subparser.add_argument('--env-file', required=False, default='.env', help='Environment file')
     # Define the 'synthesize' command
     subparser = subparsers.add_parser('synthesize', help='Synthesize speech from text')
@@ -416,7 +419,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.command == 'speakers':
         load_dotenv(args.env_file, override=True)
-        list_speakers(args.lang)
+        list_speakers(args.lang, args.engine)
     elif args.command == 'synthesize':
         load_dotenv(args.env_file, override=True)
         if not args.output_file:
