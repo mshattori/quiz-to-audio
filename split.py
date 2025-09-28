@@ -30,11 +30,13 @@ def split_by_silence(input_file, output_dir, min_silence_len, silence_thresh, al
 
     # Export each chunk as a separate file
     stemname = os.path.splitext(os.path.basename(input_file))[0]
+    # Calculate padding based on number of chunks
+    padding = len(str(len(audio_chunks)))
     for index, chunk in enumerate(audio_chunks):
         if title_prefix:
-            title = f'{title_prefix}-{index:02d}'
+            title = f'{title_prefix}-{index+1:0{padding}d}'
         else:
-            title = f'{stemname}-{index:02d}'
+            title = f'{stemname}-{index+1:0{padding}d}'
         output_filename = os.path.join(output_dir, f'{title}.mp3')
         tags = {'title': title, 'album': album, 'artist': 'Homebrew'}
         chunk.export(output_filename, format='mp3', tags=tags, id3v2_version='3')
@@ -68,6 +70,16 @@ def split_by_duration(input_file, segment_minutes, output_dir, overlap=5, album=
     segment_duration_ms = segment_minutes * 60 * 1000
     overlap_ms = overlap * 1000
 
+    # Calculate total number of segments to determine padding
+    total_segments = 1
+    temp_start = 0
+    while temp_start < len(audio):
+        temp_start += segment_duration_ms - overlap_ms
+        if temp_start < len(audio):
+            total_segments += 1
+    
+    padding = len(str(total_segments))
+
     # Extract the file name and extension from the input file path
     stemname = os.path.splitext(os.path.basename(input_file))[0]
 
@@ -77,9 +89,9 @@ def split_by_duration(input_file, segment_minutes, output_dir, overlap=5, album=
         end_ms = min(start_ms + segment_duration_ms, len(audio))
         segment = audio[start_ms:end_ms]
         if title_prefix:
-            title = f'{title_prefix}-{index:02d}'
+            title = f'{title_prefix}-{index:0{padding}d}'
         else:
-            title = f'{stemname}-{index:02d}'
+            title = f'{stemname}-{index:0{padding}d}'
         output_filename = os.path.join(output_dir, f'{title}.mp3')
         tags = {'title': title, 'album': album, 'artist': 'Homebrew'}
         segment.export(output_filename, format='mp3', tags=tags, id3v2_version='3')
