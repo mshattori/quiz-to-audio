@@ -35,12 +35,9 @@ if __name__ == '__main__':
     # Set up argument parser
     parser = argparse.ArgumentParser(description='Sets the title and album name for all audio files in a directory. The title is derived from the filename.')
 
-    # Required arguments
-    parser.add_argument('--dirname', '-d', required=True, help='Directory containing audio files')
-    parser.add_argument('--album', required=True, help='Album name to be tagged in the audio files')
-
-    # Optional argument
+    parser.add_argument('--album', '-a', required=True, help='Album name to be tagged in the audio files')
     parser.add_argument('--output-dir', '-o', default='output', help='Directory to save output files (default: output)')
+    parser.add_argument('dirname', help='Directory containing audio files')
 
     args = parser.parse_args()
 
