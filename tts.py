@@ -6,10 +6,45 @@ import random
 import shutil
 import json
 import io
-from tempfile import mkdtemp
+from tempfile import mkdtemp, NamedTemporaryFile
 from glob import glob
 from contextlib import closing
 from pydub import AudioSegment
+
+POLLY_MAX_CHARS = 1000 # Max characters per chunk for Amazon Polly
+
+def _split_text_into_chunks(text, max_chars):
+    """
+    Splits text into chunks, trying to respect sentence boundaries if possible,
+    but primarily focusing on staying under max_chars.
+    """
+    chunks = []
+    current_chunk = ""
+    
+    # Define common Japanese sentence endings
+    sentence_enders = ["。", "！", "？", ".", "!", "?"]
+
+    # Split text into potential sentences
+    # This regex splits by sentence_enders but keeps the delimiter
+    sentences = re.findall(r'[^。！？\.!\?]+[。！？\.!\?]*', text)
+
+    for sentence in sentences:
+        if len(current_chunk) + len(sentence) <= max_chars:
+            current_chunk += sentence
+        else:
+            if current_chunk: # Add current_chunk if not empty
+                chunks.append(current_chunk)
+            current_chunk = sentence # Start new chunk with current sentence
+            
+            # If a single sentence is longer than max_chars, split it forcibly
+            while len(current_chunk) > max_chars:
+                chunks.append(current_chunk[:max_chars])
+                current_chunk = current_chunk[max_chars:]
+    
+    if current_chunk: # Add any remaining text as a chunk
+        chunks.append(current_chunk)
+            
+    return [chunk.strip() for chunk in chunks if chunk.strip()]
 
 random.seed(0)  # make it consistent
 
@@ -178,9 +213,27 @@ class SimpleTTS(object):
         parent_dir = os.path.dirname(output_filename)
         if parent_dir and not os.path.exists(parent_dir):
             os.makedirs(parent_dir)
-        audio = self.engine.text_to_audio(text, self.lang, self.speaker, speed)
-        print(output_filename, text)
-        audio.export(output_filename, format='mp3')
+
+        # Split text into chunks to handle API limits
+        text_chunks = _split_text_into_chunks(text, POLLY_MAX_CHARS)
+        
+        combined_audio = AudioSegment.empty()
+        for i, chunk in enumerate(text_chunks):
+            print(f"Synthesizing chunk {i+1}/{len(text_chunks)} for '{os.path.basename(output_filename)}'")
+            try:
+                audio_segment = self.engine.text_to_audio(chunk, self.lang, self.speaker, speed)
+                combined_audio += audio_segment
+            except Exception as e:
+                print(f"Error synthesizing chunk {i+1}: {e}")
+                # Decide how to handle errors for individual chunks
+                # For now, just re-raise if it's a critical error, or log and continue
+                raise
+
+        if combined_audio:
+            print(f'Exporting {output_filename}')
+            combined_audio.export(output_filename, format='mp3')
+        else:
+            print(f"No audio generated for {output_filename}")
 
 class QuizTTS(object):
     def __init__(self, lang_Q, lang_A, engine_Q='neural', engine_A='neural', speed_Q=1.0, speed_A=1.0):
