@@ -29,6 +29,7 @@ Ref. <https://docs.aws.amazon.com/polly/latest/dg/NTTS-main.html>
 - join.py ... Join specified audio files.
 - split.py ... Split an audio file by silences.
 - trim.py ... Trim either or both ends of an audio file.
+- add_album_title.py ... Sets the 'title' (from filename) and 'album' ID3 tags for audio files in a directory.
 - addnumber.py ... Add index number audios to audio files.# CLAUDE.md
 
 ## Commands
