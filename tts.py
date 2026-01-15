@@ -148,6 +148,11 @@ class OpenAISpeechEngine(object):
         self.openai = OpenAI()
 
     def text_to_audio(self, text, lang, voice, speed=None):
+        if speed and isinstance(speed, str):
+            try:
+                speed = float(speed)
+            except ValueError:
+                speed = None
         response = self.openai.audio.speech.create(
             model=self.engine,
             input=text,
@@ -165,7 +170,7 @@ class OpenAISpeechEngine(object):
 def init_tts_engine(engine):
     if engine in ('standard', 'neural', 'long-form', 'generative'):
         return AmazonPollyEngine(engine)
-    elif engine.startswith('openai-') and engine.split('-', maxsplit=1)[1] in ('tts-1', 'tts-1-hd'):
+    elif engine.startswith('openai-') and engine.split('-', maxsplit=1)[1] in ('tts-1', 'tts-1-hd', 'gpt-4o-mini-tts'):
         engine = engine.split('-', maxsplit=1)[1]
         return OpenAISpeechEngine(engine)
     else:
