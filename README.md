@@ -1,109 +1,58 @@
-# Quiz to audio
+# quiz-to-audio
 
-Read Q&A quizes separated by " := " and convert them to audio file by Amazon Polly.
+Convert quiz text (`Q := A` format) to audio with TTS and bundle the Q/A pairs into section MP3s. Audio processing and TTS engines are provided by the external package `speech-audio-tools`.
 
-## Preperation
-
-ffmpeg is required to use pydub:
-
-```
-brew install curl
-brew install ffmpeg
+## Installation
+```bash
+uv sync
 ```
 
-... brew-installed curl is required to install dependencies of ffmpeg.
-
-pip install:
-- pydub
-- mutagen
-- boto3
-
-```
-Usage: quiz2audio.py quiz-filename output-directory
+## Usage
+```bash
+uv run quiz2audio quizzes.txt output_dir \
+  --lang-QA EJ \
+  --speed-QA 1.0:0.9 \
+  --engine neural:neural \
+  --repeat-question
 ```
 
-NOTE: Use an aws region that supports neural TTS (e.g. us-east-1)
-Ref. <https://docs.aws.amazon.com/polly/latest/dg/NTTS-main.html>
+### All options
+- `--env-file, -e`: Path to `.env` (default `.env`).
+- `--lang-QA`: `EE` (English-English), `EJ` (English -> Japanese), `JE` (Japanese -> English).
+- `--speed-QA`: Speech speed; `1.0` or `Q:A` (e.g., `1.0:0.9`).
+- `--invert-QA`: Swap Q and A before generation.
+- `--gain`: Gain (dB) applied when combining sections.
+- `--engine`: Engine (`neural`, `standard`, `openai-tts-1`, etc.). Use `dummy` to generate silent audio for tests.
+- `--repeat-question`: Read the Question twice in output.
+- `--pause-duration`: Pause between Q/A (ms).
+- `--add-number-audio`: Prepend spoken numbers to each QA.
+- `--split-by-comma`: Split comma-separated synonyms when speaking.
+- `--section-unit`: Number of QAs per section MP3.
+- `quiz_filename`: Input quiz file (`Q := A` lines).
+- `output_directory`: Destination for section MP3s.
 
-## Utilities
-- join.py ... Join specified audio files.
-- split.py ... Split an audio file by silences.
-- trim.py ... Trim either or both ends of an audio file.
-- add_album_title.py ... Sets the 'title' (from filename) and 'album' ID3 tags for audio files in a directory.
-- addnumber.py ... Add index number audios to audio files.# CLAUDE.md
+### Outputs
+- `.raw_<output_dir_name>/`: Individual MP3s for each Q/A.
+- `output_dir/`: Section MP3s (e.g., `001-010.mp3`).
 
-## Commands
+## Environment
+- Put AWS (Polly) / OpenAI keys in `.env`.
+- For offline testing, use `--engine dummy` to avoid external APIs.
 
-### Core Development Commands
-- `python quiz2audio.py <quiz-file> <output-dir>` - Main script to convert Q&A quiz files to audio
-- `python tts.py speakers --lang <lang>` - List available TTS speakers for a language
-- `python tts.py synthesize --lang <lang> -i <input-file> -o <output-file>` - Synthesize speech from text
-- `python tts.py calc-cost <input-file>` - Calculate TTS cost for a quiz file
-
-### Audio Processing Commands
-- `python trim_silence.py <input-file> <output-file>` - Intelligently trim silence from audio
-- `python split.py <input-file> <output-dir>` - Split audio by detecting silence
-- `python join.py <file1> <file2> ... -o <output-file>` - Join multiple audio files
-- `python trim.py <input-file> <output-file>` - Trim audio file ends
-- `python addnumber.py <input-dir> <output-dir>` - Add index numbers to audio files
-
-### Package Management
-- `uv sync` - Install dependencies using uv
-- `uv run python <script.py>` - Run Python scripts with uv
+## Development & Testing
+- Entry point `quiz2audio` is declared in `[project.scripts]`; run via `uv run quiz2audio ...`.
+- E2E (dummy engine):
+  ```bash
+  uv run pytest tests/test_quiz2audio_e2e.py -q
+  ```
+  The test generates silent MP3s and checks that section files are produced.
 
 ## Architecture
+- `quiz_to_audio.quiz_parser`: Quiz file parser (importable).
+- `quiz_to_audio.quiz_tts`: QuizTTS using `speech_audio_tools.tts.init_tts_engine` plus a built-in `dummy` engine.
+- `quiz_to_audio.cli`: CLI that calls `speech_audio_tools.audio.make_section_mp3_files` after TTS.
+- `quiz2audio.py`: Thin wrapper around the CLI.
 
-### Core Components
-
-**quiz2audio.py** - Main entry point that orchestrates the entire quiz-to-audio conversion process:
-- Parses command-line arguments for language, speed, voice engine selection
-- Coordinates between TTS generation and audio processing modules
-- Supports multiple TTS engines (Amazon Polly, OpenAI) and language combinations
-
-**tts.py** - Text-to-Speech engine abstraction and quiz processing:
-- `QuizTTS` class handles quiz file parsing and TTS generation
-- `AmazonPollyEngine` and `OpenAISpeechEngine` provide TTS implementations
-- `SimpleTTS` for single text-to-speech conversion
-- Quiz format: questions and answers separated by " := "
-- Supports voice randomization and speaker groups
-
-**audio.py** - Audio processing and section creation:
-- `make_section_mp3_files()` combines Q&A pairs into sectioned MP3 files
-- Speed modification, gain adjustment, and metadata tagging
-- File signature tracking to avoid regenerating unchanged audio
-- Section-based organization (default 10 Q&A pairs per section)
-
-**trim_silence.py** - Intelligent silence removal:
-- Volume analysis and threshold detection
-- Interactive threshold selection with preview
-- FFmpeg-based processing for performance
-- Smart threshold recommendations based on audio statistics
-
-### Data Flow
-1. Quiz file (text) → TTS generation (raw audio files)
-2. Raw audio files → Audio processing (combined sections)
-3. Optional: Silence trimming, joining, or splitting
-
-### Configuration
-- Environment variables loaded from `.env` file
-- AWS credentials required for Amazon Polly
-- OpenAI API key required for OpenAI TTS
-- Language codes: 'en-US', 'ja-JP' (English-Japanese combinations supported)
-
-### File Structure
-- Raw audio files stored in `.raw_<dirname>` directories
-- Output files organized by sections (001-010.mp3, 011-020.mp3, etc.)
-- Metadata files: `.quiz_audio_dict.json`, `.signatures.json`
-- Temporary number audio files in `.number_audio/`
-
-### TTS Engines
-- **Amazon Polly**: Supports neural, standard, long-form, and generative engines
-- **OpenAI**: Supports tts-1 and tts-1-hd models
-- Engine selection via `--engine` parameter (e.g., 'neural', 'openai-tts-1')
-
-### Audio Processing Features
-- Speed control (separate for questions and answers)
-- Gain adjustment
-- Silence trimming with smart threshold detection
-- Audio joining with optional silence insertion
-- Section-based MP3 generation with ID3 tags
+## Migration notes
+- Legacy audio/TTS scripts are removed here; functionality lives in `speech-audio-tools`.
+- `speech-audio-tools` is pulled via Git (ssh) as a dependency.
