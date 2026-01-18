@@ -211,7 +211,7 @@ class SimpleTTS(object):
         else:
             self.speaker = self.engine.get_speakers(lang)[0]
 
-    def make_audio_file(self, text, output_filename, speed=None):
+    def make_audio_file(self, text, output_filename, speed=None, gain=0.0):
         if os.path.exists(output_filename):
             print('Skip existing file "{}"'.format(output_filename))
             return
@@ -235,6 +235,8 @@ class SimpleTTS(object):
                 raise
 
         if combined_audio:
+            if gain != 0.0:
+                combined_audio = combined_audio.apply_gain(gain)
             print(f'Exporting {output_filename}')
             combined_audio.export(output_filename, format='mp3')
         else:
@@ -440,14 +442,14 @@ def calculate_cost(text, engine, exchange_rate):
     cost_jpy = cost_usd * exchange_rate
     return cost_jpy
 
-def synthesize_speech(lang, speaker, input_file, output_file, engine=None, speed=None):
+def synthesize_speech(lang, speaker, input_file, output_file, engine=None, speed=None, gain=0.0):
     with open(input_file, 'r') as f:
         text = ''
         for line in f.readlines():
             if line.strip().startswith('#'):
                 continue
             text += line
-    SimpleTTS(lang, speaker, engine).make_audio_file(text, output_file, speed)
+    SimpleTTS(lang, speaker, engine).make_audio_file(text, output_file, speed, gain)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -467,6 +469,7 @@ if __name__ == '__main__':
     subparser.add_argument('--output-file', '-o', required=False, default=None, help='Output audio file')
     subparser.add_argument('--engine', required=False, default='neural', help='TTS engine')
     subparser.add_argument('--speed', required=False, default=None, help='Speech speed')
+    subparser.add_argument('--gain', required=False, default=0.0, type=float, help='Audio gain in dB')
     subparser.add_argument('--env-file', required=False, default='.env', help='Environment file')
     # Define the 'calculate-cost' command
     subparser = subparsers.add_parser('calc-cost', help='Calculate the cost of synthesizing speech')
@@ -482,7 +485,7 @@ if __name__ == '__main__':
         load_dotenv(args.env_file, override=True)
         if not args.output_file:
             args.output_file = os.path.splitext(args.input_file)[0] + '.mp3'
-        synthesize_speech(args.lang, args.speaker, args.input_file, args.output_file, args.engine, args.speed)
+        synthesize_speech(args.lang, args.speaker, args.input_file, args.output_file, args.engine, args.speed, args.gain)
     elif args.command == 'calc-cost':
         quiz_list = load_quiz(args.input_file)
         text = '\n'.join([q + '\n' + a for q, a in quiz_list])
