@@ -844,7 +844,7 @@ wheels = [
 [[package]]
 name = "speech-audio-tools"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/mshattori/speech-audio-tools.git#bf44f0d1c549ce3bc89b4db7f5f72327b498aa00" }
+source = { git = "ssh://git@github.com/mshattori/speech-audio-tools.git#eeb0032945e68812a9e15de00c07a27a6c2c900a" }
 dependencies = [
     { name = "boto3" },
     { name = "mutagen" },

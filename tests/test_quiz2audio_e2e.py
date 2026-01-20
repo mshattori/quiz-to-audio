@@ -110,3 +110,27 @@ def test_single_file_conflicts_with_section_unit(tmp_path):
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=Path(__file__).parents[1], env=env)
     assert proc.returncode != 0
     assert "--single-file cannot be used together with --section-unit" in proc.stderr
+
+
+def test_album_override_single_file(tmp_path):
+    quiz_file = tmp_path / "quiz_album.txt"
+    quiz_file.write_text("sun := 太陽\n")
+    out_dir = tmp_path / "out_album"
+    cmd = [
+        "uv",
+        "run",
+        "quiz2audio",
+        str(quiz_file),
+        str(out_dir),
+        "--engine",
+        "dummy",
+        "--single-file",
+        "--album",
+        "Custom Album",
+    ]
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(Path(__file__).parents[1] / "src")
+    proc = subprocess.run(cmd, check=True, capture_output=True, text=True, cwd=Path(__file__).parents[1], env=env)
+    combined = out_dir / f"{quiz_file.stem}.mp3"
+    assert combined.exists()
+    assert combined.stat().st_size > 0

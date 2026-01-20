@@ -29,6 +29,7 @@ uv run quiz2audio quizzes.txt output_dir \
 - `--split-by-comma`: Split comma-separated synonyms when speaking.
 - `--section-unit`: Number of QAs per section MP3 (default 10).
 - `--single-file`: Combine all QAs into one MP3; title uses input filename stem. Mutually exclusive with `--section-unit` when set explicitly.
+- `--album`: Override album metadata (default derives from output directory name).
 - `quiz_filename`: Input quiz file (`Q := A` lines).
 - `output_directory`: Destination for section MP3s.
 
@@ -38,8 +39,8 @@ uv run quiz2audio quizzes.txt output_dir \
 
 ### Metadata
 The section MP3s include ID3 tags:
-- **Title**: `{start_number}-{end_number} {Album}`.
-- **Album**: Derived from the output directory name (Title Cased, underscores/hyphens replaced with spaces).
+- **Title**: `{start_number}-{end_number} {Album}` (or quiz filename stem for `--single-file`).
+- **Album**: Derived from the output directory name (Title Cased, underscores/hyphens replaced with spaces) unless overridden with `--album`.
 - **Artist**: `Homebrew`.
 
 ## Environment

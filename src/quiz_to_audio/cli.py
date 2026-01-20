@@ -1,22 +1,10 @@
 import os
 import sys
-import re
 from pathlib import Path
 import argparse
 from dotenv import load_dotenv
 
-from pydub import AudioSegment
-
-from speech_audio_tools.audio import (
-    make_section_mp3_files,
-    _collect_ordinal_numbers,
-    _find_question_file,
-    _find_answer_file,
-    _combine_QA,
-    _combine_audio_list,
-    _make_number_audio,
-    NUMBER_AUDIO_DIR,
-)
+from speech_audio_tools.audio import make_section_mp3_files, make_single_mp3_file
 from .quiz_tts import QuizTTS
 
 
@@ -25,54 +13,6 @@ def _parse_speed_pair(speed: str):
         left, right = speed.split(":")
         return float(left), float(right)
     return float(speed), float(speed)
-
-
-def _make_single_mp3(
-    input_directory,
-    output_directory,
-    title,
-    speed,
-    gain,
-    repeat_question,
-    pause_duration,
-    add_number_audio,
-    artist="Homebrew",
-):
-    numbers = _collect_ordinal_numbers(input_directory)
-    if not numbers:
-        print("No QA audio found in " + input_directory)
-        return 1
-
-    segments = []
-    if add_number_audio:
-        os.makedirs(NUMBER_AUDIO_DIR, exist_ok=True)
-        number_filename = _make_number_audio(int(numbers[0]))
-        number_audio = AudioSegment.from_file(number_filename)
-        pause = AudioSegment.silent(duration=500)
-        segments.append(number_audio + pause)
-
-    for number in numbers:
-        file_Q = _find_question_file(input_directory, number)
-        file_A = _find_answer_file(input_directory, number)
-        if not (file_Q and file_A):
-            print("WARN: Corresponding files not found for " + number)
-            continue
-        segments.append(_combine_QA(file_Q, file_A, speed, repeat_question, pause_duration))
-
-    if not segments:
-        print("No segments to combine; aborting single-file export")
-        return 1
-
-    audio = _combine_audio_list(segments)
-    if gain != 0.0:
-        audio = audio.apply_gain(gain)
-
-    album = os.path.basename(output_directory).replace("_", " ").replace("-", " ").title()
-    out_filename = os.path.join(output_directory, f"{title}.mp3")
-    tags = {"title": title, "album": album, "artist": artist}
-    audio.export(out_filename, format="mp3", tags=tags, id3v2_version="3")
-    print('Created "' + out_filename + '"')
-    return 0
 
 
 def main(argv=None):
@@ -88,6 +28,10 @@ def main(argv=None):
     parser.add_argument("--pause-duration", default="500")
     parser.add_argument("--add-number-audio", action="store_true", default=False)
     parser.add_argument("--split-by-comma", action="store_true", default=False)
+    parser.add_argument(
+        "--album",
+        help="Override album metadata (default: derived from output directory name).",
+    )
     parser.add_argument(
         "--section-unit",
         type=int,
@@ -153,10 +97,11 @@ def main(argv=None):
     pause_duration = int(args.pause_duration)
     if args.single_file:
         quiz_stem = Path(quiz_file).stem
-        return _make_single_mp3(
+        return make_single_mp3_file(
             raw_directory,
             output_directory,
             title=quiz_stem,
+            album=args.album,
             speed=(1.0, 1.0),
             gain=gain,
             repeat_question=args.repeat_question,
@@ -173,6 +118,7 @@ def main(argv=None):
         pause_duration=pause_duration,
         add_number_audio=args.add_number_audio,
         section_unit=section_unit,
+        album=args.album,
     )
     return 0
 
