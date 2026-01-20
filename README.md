@@ -35,6 +35,12 @@ uv run quiz2audio quizzes.txt output_dir \
 - `.raw_<output_dir_name>/`: Individual MP3s for each Q/A.
 - `output_dir/`: Section MP3s (e.g., `001-010.mp3`).
 
+### Metadata
+The section MP3s include ID3 tags:
+- **Title**: `{start_number}-{end_number} {Album}`.
+- **Album**: Derived from the output directory name (Title Cased, underscores/hyphens replaced with spaces).
+- **Artist**: `Homebrew`.
+
 ## Environment
 - Put AWS (Polly) / OpenAI keys in `.env`.
 - For offline testing, use `--engine dummy` to avoid external APIs.
