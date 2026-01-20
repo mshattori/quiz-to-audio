@@ -27,7 +27,8 @@ uv run quiz2audio quizzes.txt output_dir \
 - `--pause-duration`: Pause between Q/A (ms).
 - `--add-number-audio`: Prepend spoken numbers to each QA.
 - `--split-by-comma`: Split comma-separated synonyms when speaking.
-- `--section-unit`: Number of QAs per section MP3.
+- `--section-unit`: Number of QAs per section MP3 (default 10).
+- `--single-file`: Combine all QAs into one MP3; title uses input filename stem. Mutually exclusive with `--section-unit` when set explicitly.
 - `quiz_filename`: Input quiz file (`Q := A` lines).
 - `output_directory`: Destination for section MP3s.
 
